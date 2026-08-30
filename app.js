@@ -29,7 +29,7 @@
   let selectedRole = 'jobseeker';
 
   // 默认距离筛选：3 公里。
-  // 用户可在页面滑块调整：1、3、5 公里。
+  // 用户可以通过滑块或数字输入框调整 0.1-5 公里的任意距离。
   let selectedDistanceKm = 3;
 
   // 统一状态筛选：用于“招聘工作台”看板中筛选当前候选人的阶段。
@@ -982,9 +982,9 @@
     const jobCountEl = document.getElementById('jobCount');
     const talentCountEl = document.getElementById('talentCount');
     const mapTitleEl = document.getElementById('mapTitle');
-    const radiusValueEl = document.getElementById('radiusValue');
+    const distanceNumberEl = document.getElementById('distanceNumber');
 
-    radiusValueEl.textContent = `${selectedDistanceKm} 公里`;
+    distanceNumberEl.value = String(selectedDistanceKm);
 
     if (selectedRole === 'jobseeker') {
       mapTitleEl.textContent = '求职者视角 · 岗位地图';
@@ -1233,10 +1233,32 @@
     });
 
     const radiusInput = document.getElementById('distanceRange');
-    radiusInput.addEventListener('input', (event) => {
-      selectedDistanceKm = Number(event.target.value);
+    const distanceNumberInput = document.getElementById('distanceNumber');
+
+    // 统一处理距离输入，确保滑块和数字输入框始终保持同步。
+    const syncDistanceFilter = (value) => {
+      const parsedValue = Number(value);
+      if (!Number.isFinite(parsedValue)) return;
+
+      selectedDistanceKm = clamp(parsedValue, 0.1, 5);
+      selectedDistanceKm = Number(selectedDistanceKm.toFixed(1));
+      radiusInput.value = String(selectedDistanceKm);
+      distanceNumberInput.value = String(selectedDistanceKm);
       renderHeatZones();
       renderMapData();
+    };
+
+    radiusInput.addEventListener('input', (event) => {
+      syncDistanceFilter(event.target.value);
+    });
+
+    distanceNumberInput.addEventListener('input', (event) => {
+      if (event.target.value === '') return;
+      syncDistanceFilter(event.target.value);
+    });
+
+    distanceNumberInput.addEventListener('change', (event) => {
+      syncDistanceFilter(event.target.value || selectedDistanceKm);
     });
 
     const salaryMinEl = document.getElementById('salaryMin');
