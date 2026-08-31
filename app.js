@@ -1008,44 +1008,51 @@
       jobCountEl.textContent = String(mockData.jobs.filter((item) => calculateDistanceKm(CENTER_POINT.lat, CENTER_POINT.lng, item.lat, item.lng) <= selectedDistanceKm).length);
       talentCountEl.textContent = String(visibleRecords.length);
     }
+  }
 
-    // 更改大概地理位置：不要求精确到经纬度，而是按地理区域中心重置地图和 Mock 数据。
-    function applyCenterLocation() {
-      const inputValue = (document.getElementById('locationText')?.value || '').trim();
+  // 更改大概地理位置：不要求精确到经纬度，而是按地理区域中心重置地图和 Mock 数据。
+  function applyCenterLocation() {
+    const inputValue = (document.getElementById('locationText')?.value || '').trim();
 
-      // 优先命中预设商圈名称；如果用户输入的是未在表里命中的区域名，依然可用当前中心值作为兜底。
-      const locationKey = Object.keys(LOCATION_PRESETS).find((key) => {
-        const normalizedKey = key.toLowerCase();
-        const normalizedInput = inputValue.toLowerCase();
-        return normalizedKey.includes(normalizedInput) || normalizedInput.includes(normalizedKey);
-      });
+    const locationKey = Object.keys(LOCATION_PRESETS).find((key) => {
+      const normalizedKey = key.toLowerCase();
+      const normalizedInput = inputValue.toLowerCase();
+      return normalizedKey.includes(normalizedInput) || normalizedInput.includes(normalizedKey);
+    });
 
-      const targetLocation = locationKey
-        ? LOCATION_PRESETS[locationKey]
-        : {
-            lat: CENTER_POINT.lat,
-            lng: CENTER_POINT.lng,
-            name: inputValue || CENTER_POINT.name,
-          };
+    const targetLocation = locationKey
+      ? LOCATION_PRESETS[locationKey]
+      : {
+          lat: CENTER_POINT.lat,
+          lng: CENTER_POINT.lng,
+          name: inputValue || CENTER_POINT.name,
+        };
 
-      CENTER_POINT = {
-        ...CENTER_POINT,
-        ...targetLocation,
-        name: targetLocation.name || CENTER_POINT.name,
-      };
+    CENTER_POINT = {
+      ...CENTER_POINT,
+      ...targetLocation,
+      name: targetLocation.name || CENTER_POINT.name,
+    };
 
-      mockData.jobs = generateJobs();
-      mockData.talents = generateTalents();
-      recommendedIds = new Set();
-      selectedRecord = null;
-      document.getElementById('locationBadge').textContent = CENTER_POINT.name;
-      renderGovernanceSummary();
-      renderDetailDrawer();
+    mockData.jobs = generateJobs();
+    mockData.talents = generateTalents();
+    recommendedIds = new Set();
+    selectedRecord = null;
+    document.getElementById('locationBadge').textContent = CENTER_POINT.name;
+    renderGovernanceSummary();
+    renderDetailDrawer();
+
+    const mapTitleEl = document.getElementById('mapTitle');
+    if (mapTitleEl) {
+      mapTitleEl.textContent = selectedRole === 'jobseeker' ? '求职者视角 · 岗位地图' : '招聘方视角 · 人才地图';
+    }
+
+    if (map) {
       map.setView([CENTER_POINT.lat, CENTER_POINT.lng], 13);
       renderHeatZones();
-      renderMapData();
-      fetchAIRecommendation();
     }
+    renderMapData();
+    fetchAIRecommendation();
   }
 
   // -------------------------
