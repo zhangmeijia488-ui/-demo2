@@ -1357,6 +1357,12 @@
       fetchAIRecommendation();
     });
 
+    const locationInput = document.getElementById('locationText');
+    locationInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        applyCenterLocation();
+      }
+    });
     document.getElementById('applyLocationBtn').addEventListener('click', applyCenterLocation);
   }
 
