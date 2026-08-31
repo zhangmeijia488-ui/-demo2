@@ -800,19 +800,50 @@
       ],
     };
 
-    const districts = (currentPreset.districts || []).map((district) => ({
-      ...district,
-      lat: CENTER_POINT.lat + (district.latOffset || 0),
-      lng: CENTER_POINT.lng + (district.lngOffset || 0),
-    }));
+    const districtRecords = (currentPreset.districts || []).map((district) => {
+      const lat = CENTER_POINT.lat + (district.latOffset || 0);
+      const lng = CENTER_POINT.lng + (district.lngOffset || 0);
+      const nearbyJobs = mockData.jobs.filter((job) => calculateDistanceKm(lat, lng, job.lat, job.lng) <= 1.2).length;
+      const nearbyTalents = mockData.talents.filter((talent) => calculateDistanceKm(lat, lng, talent.lat, talent.lng) <= 1.2).length;
+      return {
+        ...district,
+        lat,
+        lng,
+        nearbyJobs,
+        nearbyTalents,
+        heat: nearbyJobs + nearbyTalents,
+      };
+    }).sort((a, b) => b.heat - a.heat);
 
-    districts.forEach((district) => {
+    const maxHeat = Math.max(1, ...districtRecords.map((item) => item.heat));
+
+    districtRecords.forEach((district) => {
+      const ratio = district.heat / maxHeat;
+      const fillColor = district.nearbyJobs >= district.nearbyTalents ? '#38bdf8' : '#f59e0b';
+      const circle = L.circle([district.lat, district.lng], {
+        radius: 500 + ratio * 320,
+        color: fillColor,
+        fillColor,
+        fillOpacity: 0.12 + ratio * 0.18,
+        weight: 1.4,
+        opacity: 0.9,
+      }).addTo(districtLayer);
+
+      circle.bindPopup(`
+        <div style="min-width:160px; font-size:12px; line-height:1.6; color:#e2e8f0;">
+          <div style="font-weight:700; color:#f8fafc; margin-bottom:4px;">${district.name}</div>
+          <div>岗位：${district.nearbyJobs}</div>
+          <div>人才：${district.nearbyTalents}</div>
+          <div>热度：${district.heat}</div>
+        </div>
+      `);
+
       const marker = L.marker([district.lat, district.lng], {
         icon: L.divIcon({
           className: 'district-label-wrapper',
           html: `<div class="district-label">${district.name}</div>`,
-          iconSize: [90, 28],
-          iconAnchor: [45, 14],
+          iconSize: [92, 28],
+          iconAnchor: [46, 14],
         }),
       });
       marker.addTo(districtLayer);
@@ -827,6 +858,20 @@
     }).addTo(districtLayer);
 
     centerMarker.bindPopup(`<div style="min-width:120px; font-size:12px;"><div style="font-weight:700; color:#e2e8f0; margin-bottom:4px;">${CENTER_POINT.name}</div><div style="color:#cbd5e1;">商圈中心 / 地理重心</div></div>`);
+
+    const legend = document.getElementById('districtHeatLegend');
+    if (legend) {
+      const topDistricts = districtRecords.slice(0, 4);
+      legend.innerHTML = topDistricts.map((district) => `
+        <div class="flex items-center justify-between rounded-xl border border-slate-700 bg-slate-900/70 px-2.5 py-2">
+          <div class="flex items-center gap-2">
+            <span class="h-2.5 w-2.5 rounded-full" style="background:${district.nearbyJobs >= district.nearbyTalents ? '#38bdf8' : '#f59e0b'}"></span>
+            <span class="text-[11px] text-slate-200">${district.name}</span>
+          </div>
+          <span class="text-[10px] text-slate-400">${district.heat} 热</span>
+        </div>
+      `).join('') || '<div class="rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-xs text-slate-400">暂无商圈热力数据</div>';
+    }
   }
 
   // 每个 Marker 由自定义 divIcon 生成，颜色区分岗位 / 人才；
