@@ -1102,28 +1102,45 @@
     const hiringPulse = Number(record.hiringPulseDays ?? 7);
 
     const reasons = [];
-    if (experienceGap <= 2) {
-      reasons.push(`经验深度符合，与你约 ${userYears.toFixed(1)} 年经历较匹配`);
+
+    if (selectedRole === 'jobseeker') {
+      if (experienceGap <= 2) {
+        reasons.push(`经验深度符合，与你约 ${userYears.toFixed(1)} 年经历较匹配`);
+      } else {
+        reasons.push('经验深度略超出你当前背景，但成长空间清晰');
+      }
+
+      if (salaryGap <= 12) {
+        reasons.push(`薪资区间 ${salaryLabel} 与预期相符`);
+      } else {
+        reasons.push(`薪资梯度有竞争力，且 ${salaryLabel} 具备上升空间`);
+      }
+
+      reasons.push(`福利待遇覆盖 ${benefitText}`);
+
+      if (hiringPulse <= 7) {
+        reasons.push('招聘方近 7 天有招聘动静，岗位更新频繁');
+      } else {
+        reasons.push('岗位持续在招，说明公司招聘需求稳定');
+      }
+
+      if (record.urgency === '急聘') {
+        reasons.push('岗位为急聘状态，反馈节奏更快');
+      }
     } else {
-      reasons.push('经验深度略超出你当前背景，但成长空间清晰');
-    }
+      const skillText = (record.skills || []).slice(0, 3).join(' / ') || '综合能力';
+      const availabilityText = record.availability || record.jobWillingness || '待定';
+      const statusText = record.candidateStatus || '待联系';
 
-    if (salaryGap <= 12) {
-      reasons.push(`薪资区间 ${salaryLabel} 与预期相符`);
-    } else {
-      reasons.push(`薪资梯度有竞争力，且 ${salaryLabel} 具备上升空间`);
-    }
+      if (experienceGap <= 2) {
+        reasons.push(`候选人经验深度与岗位需求相近，约 ${userYears.toFixed(1)} 年经验区间贴合`);
+      } else {
+        reasons.push('候选人具备一定成长空间，适合在高阶岗位中继续培养');
+      }
 
-    reasons.push(`福利待遇覆盖 ${benefitText}`);
-
-    if (hiringPulse <= 7) {
-      reasons.push('招聘方近 7 天有招聘动静，岗位更新频繁');
-    } else {
-      reasons.push('岗位持续在招，说明公司招聘需求稳定');
-    }
-
-    if (record.urgency === '急聘') {
-      reasons.push('岗位为急聘状态，反馈节奏更快');
+      reasons.push(`技能栈覆盖 ${skillText}，与岗位要求有较强匹配`);
+      reasons.push(`求职状态为 ${availabilityText}，${statusText} 状态利于推进筛选`);
+      reasons.push(`沟通反馈与业务背景匹配度较高，适合继续推进面试`);
     }
 
     return {
@@ -1482,10 +1499,18 @@
   // 这里不仅展示最终分数，还展示各因子明细，避免黑箱推荐。
   function renderRecommendationList(sortedRecords) {
     const listEl = document.getElementById('recommendationList');
+    const titleEl = document.getElementById('recommendationTitle');
+    if (!listEl) return;
+
+    const entityLabel = selectedRole === 'jobseeker' ? '岗位推荐榜单' : '人才推荐榜单';
+    if (titleEl) {
+      titleEl.textContent = `AI ${entityLabel}`;
+    }
+
     listEl.innerHTML = '';
 
     if (!sortedRecords || sortedRecords.length === 0) {
-      listEl.innerHTML = '<li class="rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-400">暂无推荐结果</li>';
+      listEl.innerHTML = `<li class="rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-400">暂无${selectedRole === 'jobseeker' ? '岗位' : '人才'}推荐结果</li>`;
       renderRecruitingPulse();
       return;
     }
@@ -1495,6 +1520,11 @@
         .slice(0, 3)
         .map((factor) => `${factor.name}:${factor.score}`)
         .join(' · ');
+      const primaryText = selectedRole === 'jobseeker' ? (record.title || record.name) : (record.name || record.title);
+      const secondaryText = selectedRole === 'jobseeker'
+        ? `${record.company || record.source} · ${record.distanceKm}km`
+        : `${record.title || record.company} · ${record.distanceKm}km`;
+      const badgeText = selectedRole === 'jobseeker' ? '岗位' : '人才';
 
       const item = document.createElement('li');
       item.className = 'cursor-pointer rounded-2xl border border-amber-400/25 bg-amber-500/5 px-3 py-2 transition hover:border-amber-300/50 hover:bg-amber-500/10';
@@ -1503,9 +1533,12 @@
           <div>
             <div class="flex items-center gap-2 text-sm font-semibold text-white">
               <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-[10px] font-bold text-slate-950">${index + 1}</span>
-              ${record.title || record.name}
+              ${primaryText}
             </div>
-            <div class="mt-1 text-[11px] text-slate-400">${record.company || record.source} · ${record.distanceKm}km</div>
+            <div class="mt-1 flex items-center gap-1.5 text-[11px] text-slate-400">
+              <span class="rounded-full border border-slate-600 bg-slate-800/80 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.12em] text-slate-200">${badgeText}</span>
+              <span>${secondaryText}</span>
+            </div>
           </div>
           <div class="text-right">
             <div class="text-[11px] uppercase tracking-[0.16em] text-amber-200">MATCH</div>
@@ -1553,6 +1586,7 @@
         renderHeatZones();
         renderRecruitingPulse();
         renderMapData();
+        fetchAIRecommendation();
       });
     });
 
