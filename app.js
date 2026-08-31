@@ -19,7 +19,7 @@
   // -------------------------
   // 北京国贸，作为 Demo 的中心地理坐标。
   // 说明：在真实业务里，这个中心通常来自用户当前 GPS 或企业总部位置。
-  const CENTER_POINT = {
+  let CENTER_POINT = {
     lat: 39.914, 
     lng: 116.455,
     name: '北京国贸',
@@ -61,6 +61,17 @@
   let allMarkers = [];
   let selectedRecord = null;
   let selectedProfileTab = 'portrait';
+
+  const LOCATION_PRESETS = {
+    '北京国贸': { lat: 39.914, lng: 116.455, name: '北京国贸' },
+    '北京CBD': { lat: 39.914, lng: 116.455, name: '北京CBD' },
+    '上海陆家嘴': { lat: 31.239, lng: 121.499, name: '上海陆家嘴' },
+    '上海静安': { lat: 31.229, lng: 121.457, name: '上海静安' },
+    '深圳湾区': { lat: 22.536, lng: 113.949, name: '深圳湾区' },
+    '深圳福田': { lat: 22.543, lng: 114.057, name: '深圳福田' },
+    '广州珠江新城': { lat: 23.123, lng: 113.323, name: '广州珠江新城' },
+    '成都天府': { lat: 30.572, lng: 104.066, name: '成都天府' },
+  };
 
   // -------------------------
   // 2. 关键词字典：用于简历 / 岗位匹配
@@ -158,7 +169,7 @@
     const skills = Array.isArray(record.skills) ? record.skills.map((item) => String(item).trim()) : [];
     const salaryMin = Number(record.salaryMin ?? record.salary?.split('-')[0]?.replace(/[^0-9]/g, '') ?? 0);
     const salaryMax = Number(record.salaryMax ?? record.salary?.split('-')[1]?.replace(/[^0-9]/g, '') ?? salaryMin);
-    const yearsOfExperience = Number(record.yearsOfExperience ?? Math.max(1, Math.round((salaryMin || 12) / 10)));
+    const yearsOfExperience = Number(Number(record.yearsOfExperience ?? Math.max(1, (salaryMin || 12) / 10)).toFixed(1));
 
     return {
       ...record,
@@ -708,6 +719,7 @@
             <div>数据口径：${record.sourceMeta?.schemaVersion || 'v1.2'} / ${record.sourceMeta?.dataWindow || '近 30 天'}</div>
             <div>采集时间：${new Date(record.sourceMeta?.collectedAt || record.publishedAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
             <div>多源归并：${(record.sourceRecords || []).map((item) => item.sourceType).slice(0, 2).join(' / ') || 'ATS / 招聘平台'}</div>
+            <div>经验深度：${record.yearsOfExperience.toFixed(1)} 年</div>
             <div>求职意愿：${record.jobWillingness}</div>
             <div>联系人：${record.recruiter.name} / ${record.recruiter.phone}</div>
             <div>邮箱：${record.recruiter.email}</div>
@@ -733,6 +745,7 @@
         </div>
         <div style="font-size:11px; line-height:1.5; color:#cbd5e1;">
           <div>候选人状态：${record.candidateStatus || '待联系'}</div>
+          <div>经验深度：${record.yearsOfExperience.toFixed(1)} 年</div>
           <div>求职状态：${record.availability}</div>
           <div>求职意愿：${record.jobWillingness}</div>
           <div>数据口径：${record.sourceMeta?.schemaVersion || 'v1.2'} / ${record.sourceMeta?.dataWindow || '近 30 天'}</div>
@@ -968,7 +981,7 @@
     summaryEl.innerHTML = selectedRecord.type === 'job'
       ? `${selectedRecord.company} · ${selectedRecord.urgency} · ${selectedRecord.source}<br>联系人：${selectedRecord.recruiter.name}（${selectedRecord.recruiter.phone}）<br>邮箱：${selectedRecord.recruiter.email}`
       : `${selectedRecord.company} · ${selectedRecord.candidateStatus || '待联系'} · ${selectedRecord.contactSummary}<br>电话：${selectedRecord.contact.phone}<br>邮箱：${selectedRecord.contact.email}<br>简历：${selectedRecord.resumeSummary}`;
-    distanceEl.textContent = `${selectedRecord.distanceKm}km`;
+    distanceEl.textContent = `${selectedRecord.distanceKm}km · ${Number(selectedRecord.yearsOfExperience || 0).toFixed(1)}年经验`;
     salaryEl.textContent = selectedRecord.salary || `${selectedRecord.salaryMin}k-${selectedRecord.salaryMax}k`;
     tagsEl.innerHTML = (selectedRecord.skills || []).map((skill) => `
       <span class="rounded-full border border-slate-600 bg-slate-800 px-2 py-1 text-[10px] text-slate-200">${skill}</span>
@@ -994,6 +1007,37 @@
       mapTitleEl.textContent = '招聘方视角 · 人才地图';
       jobCountEl.textContent = String(mockData.jobs.filter((item) => calculateDistanceKm(CENTER_POINT.lat, CENTER_POINT.lng, item.lat, item.lng) <= selectedDistanceKm).length);
       talentCountEl.textContent = String(visibleRecords.length);
+    }
+
+    // 更改大概地理位置：不要求精确到经纬度，而是按地理区域中心重置地图和 Mock 数据。
+    function applyCenterLocation() {
+      const inputValue = (document.getElementById('locationText')?.value || '').trim();
+      const locationKey = Object.keys(LOCATION_PRESETS).find((key) => key.includes(inputValue) || inputValue.includes(key));
+      const targetLocation = locationKey
+        ? LOCATION_PRESETS[locationKey]
+        : (
+            inputValue
+              ? { lat: CENTER_POINT.lat, lng: CENTER_POINT.lng, name: inputValue }
+              : { ...CENTER_POINT, name: CENTER_POINT.name }
+          );
+
+      CENTER_POINT = {
+        ...CENTER_POINT,
+        ...targetLocation,
+        name: targetLocation.name || CENTER_POINT.name,
+      };
+
+      mockData.jobs = generateJobs();
+      mockData.talents = generateTalents();
+      recommendedIds = new Set();
+      selectedRecord = null;
+      document.getElementById('locationBadge').textContent = CENTER_POINT.name;
+      renderGovernanceSummary();
+      renderDetailDrawer();
+      map.setView([CENTER_POINT.lat, CENTER_POINT.lng], 13);
+      renderHeatZones();
+      renderMapData();
+      fetchAIRecommendation();
     }
   }
 
@@ -1034,7 +1078,7 @@
     factors.push({ name: '技能匹配', score: skillScore, weight: 0.2 });
 
     // 因子 2：经验深度
-    const experienceScore = Math.min(18, Math.max(2, (record.salaryMin || 12) / 3));
+    const experienceScore = Number(Math.min(18, Math.max(2, (record.salaryMin || 12) / 3)).toFixed(1));
     total += experienceScore;
     factors.push({ name: '经验深度', score: experienceScore, weight: 0.12 });
 
@@ -1075,7 +1119,8 @@
     total += gatePenalty;
     factors.push({ name: '负面信号门控', score: gatePenalty, weight: 0.1 });
 
-    const score = Math.max(0, Math.round(total));
+    // 将可解释的原始得分归一化为 0-100%，供榜单直接展示 MATCH 匹配度。
+    const score = clamp(Math.round((total / 170) * 100), 0, 100);
     return { score, factors };
   }
 
@@ -1142,8 +1187,8 @@
             <div class="mt-1 text-[11px] text-slate-400">${record.company || record.source} · ${record.distanceKm}km</div>
           </div>
           <div class="text-right">
-            <div class="text-[11px] uppercase tracking-[0.16em] text-amber-200">Match</div>
-            <div class="text-lg font-bold text-amber-300">${record.score}</div>
+            <div class="text-[11px] uppercase tracking-[0.16em] text-amber-200">MATCH</div>
+            <div class="text-lg font-bold text-amber-300">${record.score}%</div>
           </div>
         </div>
         <div class="mt-2 text-[10px] text-amber-100/80">为什么推荐：${factorsText}</div>
@@ -1304,6 +1349,8 @@
     document.getElementById('matchBtn').addEventListener('click', () => {
       fetchAIRecommendation();
     });
+
+    document.getElementById('applyLocationBtn').addEventListener('click', applyCenterLocation);
   }
 
   // -------------------------

@@ -109,7 +109,7 @@
               <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-sky-300">Radar</p>
               <h1 class="mt-2 text-2xl font-bold text-white">招聘与人才雷达</h1>
             </div>
-            <div class="rounded-full border border-sky-400/30 bg-sky-500/10 px-2.5 py-1 text-[11px] font-medium text-sky-200">
+            <div id="locationBadge" class="rounded-full border border-sky-400/30 bg-sky-500/10 px-2.5 py-1 text-[11px] font-medium text-sky-200">
               北京 · 国贸
             </div>
           </div>
@@ -138,6 +138,26 @@
                 我是招聘方
               </button>
             </div>
+          </section>
+
+          <section class="mt-6">
+            <div class="mb-3 flex items-center justify-between">
+              <label class="text-sm font-medium text-slate-300">更改地理位置</label>
+              <span class="text-[10px] uppercase tracking-[0.2em] text-slate-400">Location</span>
+            </div>
+            <div class="flex gap-2">
+              <input
+                id="locationText"
+                type="text"
+                value="北京国贸"
+                aria-label="大概地理位置"
+                class="w-full rounded-xl border border-slate-700 bg-slate-950/70 px-2 py-2 text-xs text-slate-100 focus:border-sky-400 focus:outline-none"
+                placeholder="例如：北京国贸 / 上海陆家嘴 / 深圳湾区"
+              />
+              <button id="applyLocationBtn" type="button"
+                class="rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-200 transition hover:bg-sky-500/20">应用</button>
+            </div>
+            <p class="mt-2 text-[10px] leading-4 text-slate-500">输入大概区域名即可，系统会按该地区中心点重置地图与周边数据。</p>
           </section>
 
           <section class="mt-6">
