@@ -228,6 +228,14 @@
       const recruiterPhone = `138${String(10000000 + index * 137).slice(0, 8)}`;
       const recruiterEmail = `recruit${index + 1}@${companies[index % companies.length].slice(0, 3).toLowerCase()}-job.com`;
       const sourceType = ['ATS', '招聘平台', '猎头', '内推', '校招'][index % 5];
+      const companyBenefitsOptions = [
+        ['五险一金', '弹性工作', '年终奖'],
+        ['带薪年假', '股权激励', '补充医疗'],
+        ['双休', '餐补', '团队氛围'],
+        ['期权', '商业保险', '学习补贴'],
+      ];
+      const companyBenefits = companyBenefitsOptions[index % companyBenefitsOptions.length];
+      const hiringPulseDays = 1 + (index % 9);
       const sourceRecords = [
         {
           sourceType: 'ATS',
@@ -258,6 +266,8 @@
         distanceKm: Number(distanceKm.toFixed(2)),
         urgency: index % 4 === 0 ? '急聘' : '正常',
         source: sourceType,
+        companyBenefits,
+        hiringPulseDays,
         publishedAt: new Date(Date.now() - index * 3600000).toISOString(),
         jobWillingness: '可立即入职',
         interviewFeedback: ['岗位匹配度高', '弹性工作制', '团队氛围好'],
@@ -1070,6 +1080,58 @@
     return false;
   }
 
+  function extractYearsFromResume(text = '') {
+    const matched = String(text).match(/(\d+(?:\.\d+)?)\s*年/);
+    return matched ? Number.parseFloat(matched[1]) : 3;
+  }
+
+  function extractExpectedSalaryFromResume(text = '') {
+    const matched = String(text).match(/(\d{2,3})\s*k/i);
+    return matched ? Number.parseInt(matched[1], 10) : 25;
+  }
+
+  function buildRecommendationReasons(record, queryText) {
+    const userYears = extractYearsFromResume(queryText);
+    const salaryExpect = extractExpectedSalaryFromResume(queryText);
+    const salaryLabel = `${record.salaryMin || 0}k-${record.salaryMax || record.salaryMin || 0}k/月`;
+    const benefitText = Array.isArray(record.companyBenefits) && record.companyBenefits.length
+      ? record.companyBenefits.slice(0, 2).join(' / ')
+      : '五险一金 / 弹性工作';
+    const experienceGap = Math.abs((Number(record.yearsOfExperience) || 3) - userYears);
+    const salaryGap = Math.abs((Number(record.salaryMin) || 0) - salaryExpect);
+    const hiringPulse = Number(record.hiringPulseDays ?? 7);
+
+    const reasons = [];
+    if (experienceGap <= 2) {
+      reasons.push(`经验深度符合，与你约 ${userYears.toFixed(1)} 年经历较匹配`);
+    } else {
+      reasons.push('经验深度略超出你当前背景，但成长空间清晰');
+    }
+
+    if (salaryGap <= 12) {
+      reasons.push(`薪资区间 ${salaryLabel} 与预期相符`);
+    } else {
+      reasons.push(`薪资梯度有竞争力，且 ${salaryLabel} 具备上升空间`);
+    }
+
+    reasons.push(`福利待遇覆盖 ${benefitText}`);
+
+    if (hiringPulse <= 7) {
+      reasons.push('招聘方近 7 天有招聘动静，岗位更新频繁');
+    } else {
+      reasons.push('岗位持续在招，说明公司招聘需求稳定');
+    }
+
+    if (record.urgency === '急聘') {
+      reasons.push('岗位为急聘状态，反馈节奏更快');
+    }
+
+    return {
+      reasonSummary: reasons.slice(0, 4).join('；'),
+      reasons,
+    };
+  }
+
   function buildSkillScore(record, queryText) {
     const normalizedQuery = normalizeText(queryText);
     const recordText = normalizeText([record.title, record.company, record.skills.join(' '), record.industry || '', record.salary || ''].join(' '));
@@ -1135,7 +1197,8 @@
 
     // 将可解释的原始得分归一化为 0-100%，供榜单直接展示 MATCH 匹配度。
     const score = clamp(Math.round((total / 170) * 100), 0, 100);
-    return { score, factors };
+    const reasons = buildRecommendationReasons(record, queryText);
+    return { score, factors, ...reasons };
   }
 
   // 模拟大模型推荐：返回 Top 3 最适合当前用户的点位。
@@ -1221,87 +1284,156 @@
     };
   }
 
+  function buildJobDetailData(record) {
+    return {
+      title: record.title,
+      company: record.company,
+      salary: record.salary || `${record.salaryMin}k-${record.salaryMax}k/月`,
+      benefits: Array.isArray(record.companyBenefits) && record.companyBenefits.length ? record.companyBenefits : ['五险一金', '弹性工作', '年终奖'],
+      experience: record.yearsOfExperience ? `${Number(record.yearsOfExperience).toFixed(1)}年` : '1-3年',
+      urgency: record.urgency || '正常',
+      pulse: record.hiringPulseDays ? `近 ${record.hiringPulseDays} 天有招聘动静` : '岗位持续更新',
+      skills: Array.isArray(record.skills) ? record.skills : ['AI', '产品经理', '增长'],
+      summary: record.jobSummary || `${record.title}岗位关注业务理解、项目落地和协同推进能力，支持Flexible Work 与高成长路径。`,
+    };
+  }
+
   function openResumeModal(record) {
     const modal = document.getElementById('resumeModal');
     const content = document.getElementById('resumeModalContent');
     const title = document.getElementById('resumeModalTitle');
     if (!modal || !content || !title) return;
 
-    const resume = buildResumeData(record);
-    title.textContent = `${resume.name} · ${resume.title}`;
-    content.innerHTML = `
-      <div class="space-y-5 pb-6">
-        <section class="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
-          <div class="mb-4 flex items-center justify-between">
-            <div>
-              <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">Personal Information</div>
-              <h4 class="mt-2 text-2xl font-bold text-white">${resume.name}</h4>
-            </div>
-            <div class="rounded-full border border-emerald-400/40 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-200">${resume.city} · ${resume.age}岁</div>
-          </div>
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
-              <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">岗位方向</div>
-              <div class="mt-2 text-base font-semibold text-sky-200">${resume.title}</div>
-            </div>
-            <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
-              <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">薪资期望</div>
-              <div class="mt-2 text-base font-semibold text-amber-200">${resume.expectedSalary}</div>
-            </div>
-            <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
-              <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">手机号</div>
-              <div class="mt-2 text-base font-semibold text-slate-100">${resume.phone}</div>
-            </div>
-            <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
-              <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">邮箱</div>
-              <div class="mt-2 text-base font-semibold text-slate-100">${resume.email}</div>
-            </div>
-          </div>
-        </section>
-
-        <section class="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
-          <div class="mb-3 text-[10px] uppercase tracking-[0.18em] text-slate-400">Education</div>
-          <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
-            <div class="flex items-center justify-between gap-3">
+    if (selectedRole === 'jobseeker') {
+      const job = buildJobDetailData(record);
+      title.textContent = `${job.company} · ${job.title}`;
+      content.innerHTML = `
+        <div class="space-y-5 pb-6">
+          <section class="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
+            <div class="mb-4 flex items-center justify-between">
               <div>
-                <div class="text-lg font-semibold text-white">${resume.education.school}</div>
-                <div class="mt-1 text-sm text-slate-300">${resume.education.major} · ${resume.education.degree}</div>
+                <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">Job Overview</div>
+                <h4 class="mt-2 text-2xl font-bold text-white">${job.title}</h4>
               </div>
-              <div class="text-xs text-slate-400">${resume.education.time}</div>
+              <div class="rounded-full border border-amber-400/40 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-200">${job.urgency}</div>
             </div>
-          </div>
-        </section>
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
+                <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">公司</div>
+                <div class="mt-2 text-base font-semibold text-sky-200">${job.company}</div>
+              </div>
+              <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
+                <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">薪资</div>
+                <div class="mt-2 text-base font-semibold text-amber-200">${job.salary}</div>
+              </div>
+              <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
+                <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">经验</div>
+                <div class="mt-2 text-base font-semibold text-slate-100">${job.experience}</div>
+              </div>
+              <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
+                <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">招聘动向</div>
+                <div class="mt-2 text-base font-semibold text-slate-100">${job.pulse}</div>
+              </div>
+            </div>
+          </section>
 
-        <section class="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
-          <div class="mb-3 text-[10px] uppercase tracking-[0.18em] text-slate-400">Work Experience</div>
-          <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
-            <div class="flex items-center justify-between gap-3">
+          <section class="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
+            <div class="mb-3 text-[10px] uppercase tracking-[0.18em] text-slate-400">岗位概述</div>
+            <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3 text-sm leading-7 text-slate-200">${job.summary}</div>
+          </section>
+
+          <section class="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
+            <div class="mb-3 text-[10px] uppercase tracking-[0.18em] text-slate-400">福利待遇</div>
+            <div class="flex flex-wrap gap-2">
+              ${job.benefits.map((benefit) => `<span class="rounded-full border border-emerald-400/40 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-100">${benefit}</span>`).join('')}
+            </div>
+          </section>
+
+          <section class="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
+            <div class="mb-3 text-[10px] uppercase tracking-[0.18em] text-slate-400">岗位要求</div>
+            <div class="flex flex-wrap gap-2">
+              ${job.skills.map((skill) => `<span class="rounded-full border border-sky-400/40 bg-sky-500/10 px-2.5 py-1 text-[11px] text-sky-100">${skill}</span>`).join('')}
+            </div>
+          </section>
+        </div>
+      `;
+    } else {
+      const resume = buildResumeData(record);
+      title.textContent = `${resume.name} · ${resume.title}`;
+      content.innerHTML = `
+        <div class="space-y-5 pb-6">
+          <section class="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
+            <div class="mb-4 flex items-center justify-between">
               <div>
-                <div class="text-lg font-semibold text-white">${resume.workExperience.company}</div>
-                <div class="mt-1 text-sm text-sky-200">${resume.workExperience.role}</div>
+                <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">Personal Information</div>
+                <h4 class="mt-2 text-2xl font-bold text-white">${resume.name}</h4>
               </div>
-              <div class="text-xs text-slate-400">${resume.workExperience.time}</div>
+              <div class="rounded-full border border-emerald-400/40 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-200">${resume.city} · ${resume.age}岁</div>
             </div>
-            <div class="mt-3 text-sm leading-6 text-slate-300">${resume.workExperience.desc}</div>
-          </div>
-        </section>
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
+                <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">岗位方向</div>
+                <div class="mt-2 text-base font-semibold text-sky-200">${resume.title}</div>
+              </div>
+              <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
+                <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">薪资期望</div>
+                <div class="mt-2 text-base font-semibold text-amber-200">${resume.expectedSalary}</div>
+              </div>
+              <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
+                <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">手机号</div>
+                <div class="mt-2 text-base font-semibold text-slate-100">${resume.phone}</div>
+              </div>
+              <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
+                <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">邮箱</div>
+                <div class="mt-2 text-base font-semibold text-slate-100">${resume.email}</div>
+              </div>
+            </div>
+          </section>
 
-        <section class="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
-          <div class="mb-3 text-[10px] uppercase tracking-[0.18em] text-slate-400">Skills & Certificates</div>
-          <div class="mb-4 flex flex-wrap gap-2">
-            ${resume.skills.map((skill) => `<span class="rounded-full border border-sky-400/40 bg-sky-500/10 px-2.5 py-1 text-[11px] text-sky-100">${skill}</span>`).join('')}
-          </div>
-          <div class="flex flex-wrap gap-2">
-            ${resume.certificates.map((cert) => `<span class="rounded-full border border-amber-400/40 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-100">${cert}</span>`).join('')}
-          </div>
-        </section>
+          <section class="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
+            <div class="mb-3 text-[10px] uppercase tracking-[0.18em] text-slate-400">Education</div>
+            <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <div class="text-lg font-semibold text-white">${resume.education.school}</div>
+                  <div class="mt-1 text-sm text-slate-300">${resume.education.major} · ${resume.education.degree}</div>
+                </div>
+                <div class="text-xs text-slate-400">${resume.education.time}</div>
+              </div>
+            </div>
+          </section>
 
-        <section class="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
-          <div class="mb-3 text-[10px] uppercase tracking-[0.18em] text-slate-400">Self Evaluation</div>
-          <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3 text-sm leading-7 text-slate-200">${resume.selfEvaluation}</div>
-        </section>
-      </div>
-    `;
+          <section class="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
+            <div class="mb-3 text-[10px] uppercase tracking-[0.18em] text-slate-400">Work Experience</div>
+            <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <div class="text-lg font-semibold text-white">${resume.workExperience.company}</div>
+                  <div class="mt-1 text-sm text-sky-200">${resume.workExperience.role}</div>
+                </div>
+                <div class="text-xs text-slate-400">${resume.workExperience.time}</div>
+              </div>
+              <div class="mt-3 text-sm leading-6 text-slate-300">${resume.workExperience.desc}</div>
+            </div>
+          </section>
+
+          <section class="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
+            <div class="mb-3 text-[10px] uppercase tracking-[0.18em] text-slate-400">Skills & Certificates</div>
+            <div class="mb-4 flex flex-wrap gap-2">
+              ${resume.skills.map((skill) => `<span class="rounded-full border border-sky-400/40 bg-sky-500/10 px-2.5 py-1 text-[11px] text-sky-100">${skill}</span>`).join('')}
+            </div>
+            <div class="flex flex-wrap gap-2">
+              ${resume.certificates.map((cert) => `<span class="rounded-full border border-amber-400/40 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-100">${cert}</span>`).join('')}
+            </div>
+          </section>
+
+          <section class="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
+            <div class="mb-3 text-[10px] uppercase tracking-[0.18em] text-slate-400">Self Evaluation</div>
+            <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3 text-sm leading-7 text-slate-200">${resume.selfEvaluation}</div>
+          </section>
+        </div>
+      `;
+    }
 
     modal.classList.remove('hidden');
     modal.classList.add('flex');
@@ -1315,6 +1447,37 @@
     }
   }
 
+  function renderRecruitingPulse() {
+    const panel = document.getElementById('recruitingPulsePanel');
+    const title = document.getElementById('recruitingPulseTitle');
+    if (!panel) return;
+
+    const pulseList = [...mockData.jobs]
+      .sort((a, b) => (a.hiringPulseDays || 99) - (b.hiringPulseDays || 99))
+      .slice(0, 4)
+      .map((job) => {
+        const urgency = job.urgency === '急聘' ? '急聘' : '正在招聘';
+        const benefitText = Array.isArray(job.companyBenefits) ? job.companyBenefits.slice(0, 2).join(' / ') : '五险一金';
+        return `
+          <div class="rounded-2xl border border-slate-700 bg-slate-900/70 p-2.5">
+            <div class="flex items-center justify-between gap-2">
+              <div class="text-xs font-semibold text-white">${job.company}</div>
+              <span class="rounded-full border border-amber-400/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] text-amber-100">${urgency}</span>
+            </div>
+            <div class="mt-1 text-[11px] text-slate-300">${job.title} · ${job.salary}</div>
+            <div class="mt-2 text-[10px] text-slate-400">福利：${benefitText} · 近 ${job.hiringPulseDays || 7} 天有招聘动静</div>
+          </div>
+        `;
+      })
+      .join('');
+
+    if (title) {
+      title.textContent = selectedRole === 'jobseeker' ? '招聘方动向' : '招聘动向';
+    }
+
+    panel.innerHTML = pulseList || '<div class="rounded-xl border border-slate-700 bg-slate-900/70 p-3 text-sm text-slate-400">暂无最近招聘动向</div>';
+  }
+
   // 更新右侧顶部“AI 推荐榜单”列表：
   // 这里不仅展示最终分数，还展示各因子明细，避免黑箱推荐。
   function renderRecommendationList(sortedRecords) {
@@ -1323,11 +1486,12 @@
 
     if (!sortedRecords || sortedRecords.length === 0) {
       listEl.innerHTML = '<li class="rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-400">暂无推荐结果</li>';
+      renderRecruitingPulse();
       return;
     }
 
     sortedRecords.forEach((record, index) => {
-      const factorsText = (record.factors || [])
+      const reasonText = record.reasonSummary || (record.factors || [])
         .slice(0, 3)
         .map((factor) => `${factor.name}:${factor.score}`)
         .join(' · ');
@@ -1348,11 +1512,13 @@
             <div class="text-lg font-bold text-amber-300">${record.score}%</div>
           </div>
         </div>
-        <div class="mt-2 text-[10px] text-amber-100/80">为什么推荐：${factorsText}</div>
+        <div class="mt-2 text-[10px] text-amber-100/80">为什么推荐：${reasonText}</div>
       `;
       item.addEventListener('click', () => openResumeModal(record));
       listEl.appendChild(item);
     });
+
+    renderRecruitingPulse();
   }
 
   // -------------------------
@@ -1385,6 +1551,7 @@
         }
 
         renderHeatZones();
+        renderRecruitingPulse();
         renderMapData();
       });
     });
