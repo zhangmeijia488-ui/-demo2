@@ -150,6 +150,7 @@
                 id="locationText"
                 type="text"
                 value="北京国贸"
+                list="locationSuggestions"
                 aria-label="大概地理位置"
                 class="w-full rounded-xl border border-slate-700 bg-slate-950/70 px-2 py-2 text-xs text-slate-100 focus:border-sky-400 focus:outline-none"
                 placeholder="例如：北京国贸 / 上海陆家嘴 / 深圳湾区"
@@ -157,6 +158,16 @@
               <button id="applyLocationBtn" type="button"
                 class="rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-200 transition hover:bg-sky-500/20">应用</button>
             </div>
+            <datalist id="locationSuggestions">
+              <option value="北京国贸"></option>
+              <option value="北京CBD"></option>
+              <option value="上海陆家嘴"></option>
+              <option value="上海静安"></option>
+              <option value="深圳湾区"></option>
+              <option value="深圳福田"></option>
+              <option value="广州珠江新城"></option>
+              <option value="成都天府"></option>
+            </datalist>
             <p class="mt-2 text-[10px] leading-4 text-slate-500">输入大概区域名即可，系统会按该地区中心点重置地图与周边数据。</p>
           </section>
 

@@ -1012,14 +1012,21 @@
     // 更改大概地理位置：不要求精确到经纬度，而是按地理区域中心重置地图和 Mock 数据。
     function applyCenterLocation() {
       const inputValue = (document.getElementById('locationText')?.value || '').trim();
-      const locationKey = Object.keys(LOCATION_PRESETS).find((key) => key.includes(inputValue) || inputValue.includes(key));
+
+      // 优先命中预设商圈名称；如果用户输入的是未在表里命中的区域名，依然可用当前中心值作为兜底。
+      const locationKey = Object.keys(LOCATION_PRESETS).find((key) => {
+        const normalizedKey = key.toLowerCase();
+        const normalizedInput = inputValue.toLowerCase();
+        return normalizedKey.includes(normalizedInput) || normalizedInput.includes(normalizedKey);
+      });
+
       const targetLocation = locationKey
         ? LOCATION_PRESETS[locationKey]
-        : (
-            inputValue
-              ? { lat: CENTER_POINT.lat, lng: CENTER_POINT.lng, name: inputValue }
-              : { ...CENTER_POINT, name: CENTER_POINT.name }
-          );
+        : {
+            lat: CENTER_POINT.lat,
+            lng: CENTER_POINT.lng,
+            name: inputValue || CENTER_POINT.name,
+          };
 
       CENTER_POINT = {
         ...CENTER_POINT,
