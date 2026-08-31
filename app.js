@@ -1360,9 +1360,32 @@
     const locationInput = document.getElementById('locationText');
     let locationDebounceTimer = null;
 
+    const syncLocationChips = (selectedValue) => {
+      document.querySelectorAll('.location-chip').forEach((chip) => {
+        const isActive = chip.dataset.location === selectedValue;
+        chip.classList.toggle('border-sky-400/30', isActive);
+        chip.classList.toggle('bg-sky-500/10', isActive);
+        chip.classList.toggle('text-sky-100', isActive);
+        chip.classList.toggle('border-slate-700', !isActive);
+        chip.classList.toggle('bg-slate-800/70', !isActive);
+        chip.classList.toggle('text-slate-200', !isActive);
+      });
+    };
+
+    document.querySelectorAll('.location-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const selected = chip.dataset.location;
+        locationInput.value = selected;
+        syncLocationChips(selected);
+        applyCenterLocation();
+      });
+    });
+
     locationInput.addEventListener('input', () => {
       clearTimeout(locationDebounceTimer);
       locationDebounceTimer = setTimeout(() => {
+        const currentValue = locationInput.value.trim();
+        syncLocationChips(currentValue);
         applyCenterLocation();
       }, 300);
     });
@@ -1370,11 +1393,15 @@
     locationInput.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         clearTimeout(locationDebounceTimer);
+        syncLocationChips(locationInput.value.trim());
         applyCenterLocation();
       }
     });
 
-    document.getElementById('applyLocationBtn').addEventListener('click', applyCenterLocation);
+    document.getElementById('applyLocationBtn').addEventListener('click', () => {
+      syncLocationChips(locationInput.value.trim());
+      applyCenterLocation();
+    });
   }
 
   // -------------------------
