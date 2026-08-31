@@ -27,6 +27,8 @@
 
   // 默认选中的角色：求职者模式展示岗位，招聘方模式展示人才。
   let selectedRole = 'jobseeker';
+  let employerJobPosts = [];
+  let selectedEmployerJob = null;
 
   // 默认距离筛选：3 公里。
   // 用户可以通过滑块或数字输入框调整 0.1-5 公里的任意距离。
@@ -58,7 +60,6 @@
   let map;
   let markerLayer;
   let radarCircleLayer;
-  let districtLayer;
   let allMarkers = [];
   let selectedRecord = null;
   let selectedProfileTab = 'portrait';
@@ -69,11 +70,12 @@
       lng: 116.455,
       name: '北京国贸',
       districts: [
-        { name: '国贸CBD', latOffset: 0.008, lngOffset: 0.01 },
-        { name: '三里屯', latOffset: 0.016, lngOffset: -0.008 },
-        { name: '朝外SOHO', latOffset: -0.006, lngOffset: 0.015 },
-        { name: '亮马桥', latOffset: -0.013, lngOffset: -0.014 },
-        { name: '地铁国贸站', latOffset: 0.004, lngOffset: 0.001 },
+        { name: '国贸CBD', type: 'business', latOffset: 0.008, lngOffset: 0.01 },
+        { name: '三里屯', type: 'business', latOffset: 0.016, lngOffset: -0.008 },
+        { name: '朝外SOHO', type: 'business', latOffset: -0.006, lngOffset: 0.015 },
+        { name: '亮马桥', type: 'business', latOffset: -0.013, lngOffset: -0.014 },
+        { name: '地铁国贸站', type: 'subway', latOffset: 0.004, lngOffset: 0.001 },
+        { name: '朝阳科技园', type: 'industrial', latOffset: 0.02, lngOffset: 0.019 },
       ],
     },
     '北京CBD': {
@@ -81,11 +83,12 @@
       lng: 116.455,
       name: '北京CBD',
       districts: [
-        { name: 'CBD核心', latOffset: 0.004, lngOffset: 0.006 },
-        { name: '建国门', latOffset: 0.013, lngOffset: -0.015 },
-        { name: '北京站', latOffset: -0.015, lngOffset: -0.012 },
-        { name: '金融街', latOffset: -0.02, lngOffset: 0.018 },
-        { name: '国贸商圈', latOffset: 0.009, lngOffset: 0.012 },
+        { name: 'CBD核心', type: 'business', latOffset: 0.004, lngOffset: 0.006 },
+        { name: '建国门', type: 'subway', latOffset: 0.013, lngOffset: -0.015 },
+        { name: '北京站', type: 'subway', latOffset: -0.015, lngOffset: -0.012 },
+        { name: '金融街', type: 'business', latOffset: -0.02, lngOffset: 0.018 },
+        { name: '国贸商圈', type: 'business', latOffset: 0.009, lngOffset: 0.012 },
+        { name: '朝阳产业园', type: 'industrial', latOffset: 0.026, lngOffset: 0.024 },
       ],
     },
     '上海陆家嘴': {
@@ -93,11 +96,12 @@
       lng: 121.499,
       name: '上海陆家嘴',
       districts: [
-        { name: '陆家嘴金融区', latOffset: 0.006, lngOffset: 0.011 },
-        { name: '浦东CBD', latOffset: -0.002, lngOffset: 0.019 },
-        { name: '东方明珠', latOffset: 0.013, lngOffset: -0.006 },
-        { name: '世纪大道', latOffset: -0.011, lngOffset: 0.008 },
-        { name: '张江', latOffset: 0.023, lngOffset: -0.021 },
+        { name: '陆家嘴金融区', type: 'business', latOffset: 0.006, lngOffset: 0.011 },
+        { name: '浦东CBD', type: 'business', latOffset: -0.002, lngOffset: 0.019 },
+        { name: '东方明珠', type: 'business', latOffset: 0.013, lngOffset: -0.006 },
+        { name: '世纪大道', type: 'subway', latOffset: -0.011, lngOffset: 0.008 },
+        { name: '张江', type: 'industrial', latOffset: 0.023, lngOffset: -0.021 },
+        { name: '陆家嘴地铁站', type: 'subway', latOffset: 0.008, lngOffset: 0.014 },
       ],
     },
     '上海静安': {
@@ -105,11 +109,12 @@
       lng: 121.457,
       name: '上海静安',
       districts: [
-        { name: '静安寺', latOffset: 0.01, lngOffset: 0.007 },
-        { name: '南京西路', latOffset: -0.004, lngOffset: -0.009 },
-        { name: '上海中心', latOffset: 0.016, lngOffset: 0.014 },
-        { name: '西藏北路', latOffset: -0.019, lngOffset: 0.006 },
-        { name: '商务圈', latOffset: 0.005, lngOffset: 0.017 },
+        { name: '静安寺', type: 'business', latOffset: 0.01, lngOffset: 0.007 },
+        { name: '南京西路', type: 'business', latOffset: -0.004, lngOffset: -0.009 },
+        { name: '上海中心', type: 'business', latOffset: 0.016, lngOffset: 0.014 },
+        { name: '西藏北路', type: 'subway', latOffset: -0.019, lngOffset: 0.006 },
+        { name: '商务圈', type: 'business', latOffset: 0.005, lngOffset: 0.017 },
+        { name: '静安产业园', type: 'industrial', latOffset: -0.022, lngOffset: 0.02 },
       ],
     },
     '深圳湾区': {
@@ -117,11 +122,12 @@
       lng: 113.949,
       name: '深圳湾区',
       districts: [
-        { name: '湾区科技', latOffset: 0.006, lngOffset: 0.009 },
-        { name: '海岸城', latOffset: -0.009, lngOffset: -0.011 },
-        { name: '腾讯湾区', latOffset: 0.013, lngOffset: -0.003 },
-        { name: '深圳湾', latOffset: -0.018, lngOffset: 0.014 },
-        { name: '地铁湾区', latOffset: 0.002, lngOffset: 0.019 },
+        { name: '湾区科技', type: 'industrial', latOffset: 0.006, lngOffset: 0.009 },
+        { name: '海岸城', type: 'business', latOffset: -0.009, lngOffset: -0.011 },
+        { name: '腾讯湾区', type: 'business', latOffset: 0.013, lngOffset: -0.003 },
+        { name: '深圳湾', type: 'business', latOffset: -0.018, lngOffset: 0.014 },
+        { name: '湾区地铁', type: 'subway', latOffset: 0.002, lngOffset: 0.019 },
+        { name: '前海创新园', type: 'industrial', latOffset: 0.024, lngOffset: -0.02 },
       ],
     },
     '深圳福田': {
@@ -129,11 +135,12 @@
       lng: 114.057,
       name: '深圳福田',
       districts: [
-        { name: '福田中心', latOffset: 0.005, lngOffset: 0.007 },
-        { name: '深南大道', latOffset: -0.012, lngOffset: 0.01 },
-        { name: '购物中心', latOffset: 0.019, lngOffset: -0.009 },
-        { name: '桂圆路', latOffset: -0.024, lngOffset: 0.02 },
-        { name: '科技园', latOffset: 0.012, lngOffset: -0.02 },
+        { name: '福田中心', type: 'business', latOffset: 0.005, lngOffset: 0.007 },
+        { name: '深南大道', type: 'subway', latOffset: -0.012, lngOffset: 0.01 },
+        { name: '购物中心', type: 'business', latOffset: 0.019, lngOffset: -0.009 },
+        { name: '桂圆路', type: 'subway', latOffset: -0.024, lngOffset: 0.02 },
+        { name: '科技园', type: 'industrial', latOffset: 0.012, lngOffset: -0.02 },
+        { name: '福田产业园', type: 'industrial', latOffset: -0.028, lngOffset: 0.026 },
       ],
     },
     '广州珠江新城': {
@@ -141,11 +148,12 @@
       lng: 113.323,
       name: '广州珠江新城',
       districts: [
-        { name: '珠江新城', latOffset: 0.008, lngOffset: 0.009 },
-        { name: '花城湾', latOffset: -0.01, lngOffset: 0.012 },
-        { name: '天河北', latOffset: 0.017, lngOffset: -0.013 },
-        { name: '金融中心', latOffset: -0.015, lngOffset: 0.02 },
-        { name: '广州塔', latOffset: 0.011, lngOffset: -0.021 },
+        { name: '珠江新城', type: 'business', latOffset: 0.008, lngOffset: 0.009 },
+        { name: '花城湾', type: 'business', latOffset: -0.01, lngOffset: 0.012 },
+        { name: '天河北', type: 'subway', latOffset: 0.017, lngOffset: -0.013 },
+        { name: '金融中心', type: 'business', latOffset: -0.015, lngOffset: 0.02 },
+        { name: '广州塔', type: 'business', latOffset: 0.011, lngOffset: -0.021 },
+        { name: '广州开发区', type: 'industrial', latOffset: -0.029, lngOffset: 0.03 },
       ],
     },
     '成都天府': {
@@ -153,11 +161,12 @@
       lng: 104.066,
       name: '成都天府',
       districts: [
-        { name: '天府CBD', latOffset: 0.009, lngOffset: 0.011 },
-        { name: '金融城', latOffset: -0.012, lngOffset: -0.009 },
-        { name: '天府广场', latOffset: 0.018, lngOffset: 0.009 },
-        { name: '科技园', latOffset: -0.021, lngOffset: 0.023 },
-        { name: '地铁天府站', latOffset: 0.006, lngOffset: -0.018 },
+        { name: '天府CBD', type: 'business', latOffset: 0.009, lngOffset: 0.011 },
+        { name: '金融城', type: 'business', latOffset: -0.012, lngOffset: -0.009 },
+        { name: '天府广场', type: 'subway', latOffset: 0.018, lngOffset: 0.009 },
+        { name: '科技园', type: 'industrial', latOffset: -0.021, lngOffset: 0.023 },
+        { name: '地铁天府站', type: 'subway', latOffset: 0.006, lngOffset: -0.018 },
+        { name: '创新产业园', type: 'industrial', latOffset: -0.032, lngOffset: -0.028 },
       ],
     },
   };
@@ -325,6 +334,15 @@
       ];
       const companyBenefits = companyBenefitsOptions[index % companyBenefitsOptions.length];
       const hiringPulseDays = 1 + (index % 9);
+      const experienceLevels = ['1-3年', '3-5年', '5年以上', '2年以上'];
+      const educationLevels = ['大专', '本科', '硕士', '本科优先', '硕士优先'];
+      const workEnvironments = ['总部办公 / 周三至周五驻场', '混合办公 / 允许远程 2 天', '在岗现场协作 / 需要出差', '灵活办公 / 近地铁'];
+      const jobContentTemplates = [
+        '负责产品需求梳理、用户研究、方案评审与落地推进，推动 AI 产品的迭代和增长闭环。',
+        '负责业务方向拆解、跨团队协同沟通、数据指标分析与关键问题推动，提升产品成熟度与用户体验。',
+        '负责功能方案设计、需求拆解、项目执行与上线跟踪，确保高质量交付与数据优化。',
+        '围绕用户增长与业务指标，开展运营策略优化、渠道协同与活动落地，持续提升转化效果。',
+      ];
       const sourceRecords = [
         {
           sourceType: 'ATS',
@@ -357,6 +375,11 @@
         source: sourceType,
         companyBenefits,
         hiringPulseDays,
+        requiredExperience: experienceLevels[index % experienceLevels.length],
+        education: educationLevels[index % educationLevels.length],
+        workEnvironment: workEnvironments[index % workEnvironments.length],
+        technicalSkills: skillGroup,
+        jobContent: jobContentTemplates[index % jobContentTemplates.length],
         publishedAt: new Date(Date.now() - index * 3600000).toISOString(),
         jobWillingness: '可立即入职',
         interviewFeedback: ['岗位匹配度高', '弹性工作制', '团队氛围好'],
@@ -410,7 +433,10 @@
     const statuses = ['待联系', '已查看', '已回复', '面试中', 'offer'];
     const channels = ['猎头', '内推', '社媒', '官网', '推荐'];
 
-    return Array.from({ length: 50 }, (_, index) => {
+    // 招聘方视角不再展示 50 条杂乱的候选人点，改为 5 条经过筛选后的“候选人短名单”；
+    // 这样更像真实招聘工作台：重点看高价值候选人 + 明确的重复风险提示，
+    // 而不是把大量相似简历堆在地图上造成视觉噪音。
+    return Array.from({ length: 5 }, (_, index) => {
       const point = randomPointNearCenter(CENTER_POINT.lat, CENTER_POINT.lng, 5);
       const title = titles[index % titles.length];
       const skillGroup = skillSets[index % skillSets.length];
@@ -421,14 +447,18 @@
       const channel = channels[index % channels.length];
       const replyRate = 0.45 + (index % 6) * 0.08;
       const commuteTolerance = 15 + (index % 4) * 5;
-      const hasNegativeSignal = index % 9 === 0;
+      const hasNegativeSignal = index % 6 === 0;
       const recentRejectWindowDays = hasNegativeSignal ? 30 + (index % 5) * 12 : null;
-      const lastInterviewAt = index % 6 === 0 ? new Date(Date.now() - 60 * 86400000).toISOString() : null;
-      const lastInterviewResult = index % 6 === 0 ? '未通过' : '待定';
+      const lastInterviewAt = index % 5 === 0 ? new Date(Date.now() - 60 * 86400000).toISOString() : null;
+      const lastInterviewResult = index % 5 === 0 ? '未通过' : '待定';
+      const duplicateSignals = [
+        index % 2 === 0 ? '简历重复：工作经历与投递材料高度重叠' : '简历重复：教育背景与项目经历高度相似',
+        index % 3 === 0 ? '经历交叉：近 2 年的职责与项目内容重合' : '经历交叉：技术栈及业务背景存在交叉',
+      ];
 
       const phone = `186${String(10000000 + index * 173).slice(0, 8)}`;
       const email = `${names[index % names.length].slice(0, 2).toLowerCase()}${index + 1}@mail.com`;
-      const resumeSummary = `${title}候选人，拥有 ${Math.min(8, 2 + (index % 6))} 年相关经验，熟悉 ${skillGroup.slice(0, 2).join(' / ')}，具备从 0 到 1 产品与运营协同能力，擅长跨团队沟通与落地。`;
+      const resumeSummary = `${title}候选人，拥有 ${Math.min(8, 2 + (index % 6))} 年相关经验，熟悉 ${skillGroup.slice(0, 2).join(' / ')}，具备从 0 到 1 产品与运营协同能力，擅长跨团队沟通与落地。${duplicateSignals.join('；')}`;
       const sourceTypes = ['ATS', '招聘平台', '内推', '猎头', '校招'];
       const sourceRecords = [
         {
@@ -462,9 +492,11 @@
         source: channel,
         sourceChannels: [channel, '简历库', '社媒'],
         candidateStatus: status,
-        dedupKey: `${names[index % names.length]}-${title}-${channel}`,
+        dedupKey: `${names[index % names.length]}-${title}-${channel}-duplicate-${index + 1}`,
+        duplicateSignals,
+        dedupeReason: duplicateSignals[0],
         lastContact: new Date(Date.now() - index * 86400000).toISOString(),
-        contactSummary: index % 2 === 0 ? '沟通符合岗位预期，建议继续推进初筛' : '已安排技术面试，待反馈',
+        contactSummary: index % 2 === 0 ? '沟通符合岗位预期，建议继续推进初筛；但存在简历重复与经历交叉风险' : '已安排技术面试，待反馈；需重点核验候选人归并情况',
         publishedAt: new Date(Date.now() - index * 7200000).toISOString(),
         jobWillingness: index % 2 === 0 ? '可接洽' : '求职中',
         interviewFeedback: ['沟通能力强', '项目经验丰富', '适合高压环境'],
@@ -503,9 +535,7 @@
       return Date.now() - collectedAt.getTime() > 30 * 86400000;
     }).length;
     const multiSourceCount = allRecords.filter((item) => (item.sourceRecords || []).length > 1).length;
-    const duplicateCandidates = Array.from(new Map(
-      mockData.talents.map((item) => [item.dedupeKey || item.id, item])
-    ).values()).filter((item) => item.sourceChannels && item.sourceChannels.length > 1).length;
+    const duplicateCandidates = mockData.talents.filter((item) => Array.isArray(item.duplicateSignals) && item.duplicateSignals.length > 0).length || 5;
 
     return {
       totalRecords: allRecords.length,
@@ -722,7 +752,10 @@
   function initializeData() {
     mockData.jobs = generateJobs();
     mockData.talents = generateTalents();
+    employerJobPosts = buildGameCompanyJobPosts();
+    selectedEmployerJob = employerJobPosts[0] || null;
     renderGovernanceSummary();
+    renderEmployerJobEditor();
   }
 
   // -------------------------
@@ -749,7 +782,6 @@
 
     markerLayer = L.layerGroup().addTo(map);
     radarCircleLayer = L.layerGroup().addTo(map);
-    districtLayer = L.layerGroup().addTo(map);
 
     renderHeatZones();
     renderMapData();
@@ -787,96 +819,6 @@
       map.setView([CENTER_POINT.lat, CENTER_POINT.lng], 14, { animate: false });
     }
     map && map.invalidateSize();
-    renderDistrictLandmarks();
-  }
-
-  function renderDistrictLandmarks() {
-    if (!map) return;
-    if (!districtLayer) return;
-
-    districtLayer.clearLayers();
-
-    const currentPreset = LOCATION_PRESETS[Object.keys(LOCATION_PRESETS).find((key) => {
-      const name = (CENTER_POINT.name || '').toLowerCase();
-      return name.includes(key.toLowerCase()) || key.toLowerCase().includes(name);
-    })] || {
-      districts: [
-        { name: CENTER_POINT.name || '当前区域', latOffset: 0, lngOffset: 0 },
-      ],
-    };
-
-    const districtRecords = (currentPreset.districts || []).map((district) => {
-      const lat = CENTER_POINT.lat + (district.latOffset || 0);
-      const lng = CENTER_POINT.lng + (district.lngOffset || 0);
-      const nearbyJobs = mockData.jobs.filter((job) => calculateDistanceKm(lat, lng, job.lat, job.lng) <= 1.2).length;
-      const nearbyTalents = mockData.talents.filter((talent) => calculateDistanceKm(lat, lng, talent.lat, talent.lng) <= 1.2).length;
-      return {
-        ...district,
-        lat,
-        lng,
-        nearbyJobs,
-        nearbyTalents,
-        heat: nearbyJobs + nearbyTalents,
-      };
-    }).sort((a, b) => b.heat - a.heat);
-
-    const maxHeat = Math.max(1, ...districtRecords.map((item) => item.heat));
-
-    districtRecords.forEach((district) => {
-      const ratio = district.heat / maxHeat;
-      const fillColor = district.nearbyJobs >= district.nearbyTalents ? '#38bdf8' : '#f59e0b';
-      const circle = L.circle([district.lat, district.lng], {
-        radius: 500 + ratio * 320,
-        color: fillColor,
-        fillColor,
-        fillOpacity: 0.12 + ratio * 0.18,
-        weight: 1.4,
-        opacity: 0.9,
-      }).addTo(districtLayer);
-
-      circle.bindPopup(`
-        <div style="min-width:160px; font-size:12px; line-height:1.6; color:#e2e8f0;">
-          <div style="font-weight:700; color:#f8fafc; margin-bottom:4px;">${district.name}</div>
-          <div>岗位：${district.nearbyJobs}</div>
-          <div>人才：${district.nearbyTalents}</div>
-          <div>热度：${district.heat}</div>
-        </div>
-      `);
-
-      const marker = L.marker([district.lat, district.lng], {
-        icon: L.divIcon({
-          className: 'district-label-wrapper',
-          html: `<div class="district-label">${district.name}</div>`,
-          iconSize: [92, 28],
-          iconAnchor: [46, 14],
-        }),
-      });
-      marker.addTo(districtLayer);
-    });
-
-    const centerMarker = L.circleMarker([CENTER_POINT.lat, CENTER_POINT.lng], {
-      radius: 6,
-      color: '#f8fafc',
-      fillColor: '#38bdf8',
-      fillOpacity: 1,
-      weight: 2,
-    }).addTo(districtLayer);
-
-    centerMarker.bindPopup(`<div style="min-width:120px; font-size:12px;"><div style="font-weight:700; color:#e2e8f0; margin-bottom:4px;">${CENTER_POINT.name}</div><div style="color:#cbd5e1;">商圈中心 / 地理重心</div></div>`);
-
-    const legend = document.getElementById('districtHeatLegend');
-    if (legend) {
-      const topDistricts = districtRecords.slice(0, 4);
-      legend.innerHTML = topDistricts.map((district) => `
-        <div class="flex items-center justify-between rounded-xl border border-slate-700 bg-slate-900/70 px-2.5 py-2">
-          <div class="flex items-center gap-2">
-            <span class="h-2.5 w-2.5 rounded-full" style="background:${district.nearbyJobs >= district.nearbyTalents ? '#38bdf8' : '#f59e0b'}"></span>
-            <span class="text-[11px] text-slate-200">${district.name}</span>
-          </div>
-          <span class="text-[10px] text-slate-400">${district.heat} 热</span>
-        </div>
-      `).join('') || '<div class="rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-xs text-slate-400">暂无商圈热力数据</div>';
-    }
   }
 
   // 每个 Marker 由自定义 divIcon 生成，颜色区分岗位 / 人才；
@@ -905,8 +847,14 @@
   // 弹窗内容：用于展示岗位或人才图钉详细信息，体现产品中的“简报卡片”形态。
   function buildPopupHtml(record) {
     if (record.type === 'job') {
+      const requirementSkills = Array.isArray(record.technicalSkills) && record.technicalSkills.length ? record.technicalSkills : record.skills;
+      const workExperience = record.requiredExperience || `${Number(record.yearsOfExperience || 3).toFixed(1)}年`;
+      const education = record.education || '本科优先';
+      const workEnvironment = record.workEnvironment || '混合办公 / 允许远程 2 天';
+      const workContent = record.jobContent || record.jobSummary || '负责相关业务梳理与协同推进，推动目标落地。';
+
       return `
-        <div style="width:240px; padding: 10px 12px 8px;">
+        <div style="width:260px; padding: 10px 12px 8px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <span style="background: rgba(56,189,248,0.12); color:#7dd3fc; border:1px solid rgba(56,189,248,0.25); border-radius:999px; padding:4px 8px; font-size:11px; font-weight:700;">急聘岗位</span>
             <span style="font-size:11px; color:#cbd5e1;">${record.distanceKm}km</span>
@@ -915,20 +863,20 @@
           <div style="color:#cbd5e1; font-size:12px; margin-bottom:4px;">${record.company}</div>
           <div style="color:#fbbf24; font-weight:700; font-size:15px; margin-bottom:8px;">${record.salary}</div>
           <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;">
-            ${record.skills.map((skill) => `<span style="background: rgba(148,163,184,0.12); color:#e2e8f0; border:1px solid rgba(148,163,184,0.18); border-radius:999px; padding:3px 7px; font-size:10px;">${skill}</span>`).join('')}
+            ${requirementSkills.map((skill) => `<span style="background: rgba(148,163,184,0.12); color:#e2e8f0; border:1px solid rgba(148,163,184,0.18); border-radius:999px; padding:3px 7px; font-size:10px;">${skill}</span>`).join('')}
           </div>
-          <div style="font-size:11px; line-height:1.5; color:#cbd5e1;">
+          <div style="font-size:11px; line-height:1.6; color:#cbd5e1;">
+            <div><strong style="color:#f8fafc;">工作年限：</strong>${workExperience}</div>
+            <div><strong style="color:#f8fafc;">学历背景：</strong>${education}</div>
+            <div><strong style="color:#f8fafc;">技术能力：</strong>${requirementSkills.slice(0, 3).join(' / ')}</div>
+            <div><strong style="color:#f8fafc;">工作环境：</strong>${workEnvironment}</div>
+            <div><strong style="color:#f8fafc;">工作内容：</strong>${workContent}</div>
             <div>岗位来源：${record.source}</div>
             <div>数据口径：${record.sourceMeta?.schemaVersion || 'v1.2'} / ${record.sourceMeta?.dataWindow || '近 30 天'}</div>
             <div>采集时间：${new Date(record.sourceMeta?.collectedAt || record.publishedAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-            <div>多源归并：${(record.sourceRecords || []).map((item) => item.sourceType).slice(0, 2).join(' / ') || 'ATS / 招聘平台'}</div>
-            <div>经验深度：${record.yearsOfExperience.toFixed(1)} 年</div>
-            <div>求职意愿：${record.jobWillingness}</div>
             <div>联系人：${record.recruiter.name} / ${record.recruiter.phone}</div>
             <div>邮箱：${record.recruiter.email}</div>
-            <div>薪资校验：${record.salaryMin}k-${record.salaryMax}k</div>
             <div>岗位简介：${record.jobSummary}</div>
-            <div>历史反馈：${record.interviewFeedback.slice(0, 2).join(' / ')}</div>
           </div>
         </div>
       `;
@@ -958,9 +906,10 @@
           <div>微信：${record.contact.wechat}</div>
           <div>来源：${record.sourceChannels?.join(' / ') || record.source}</div>
           <div>去重键：${record.dedupKey}</div>
-          <div>简历摘要：${record.resumeSummary}</div>
-          <div>最近沟通：${record.contactSummary}</div>
-          <div>历史反馈：${record.interviewFeedback.slice(0, 2).join(' / ')}</div>
+        <div>疑似重复：${(record.duplicateSignals || ['无']).slice(0, 2).join(' / ')}</div>
+        <div>简历摘要：${record.resumeSummary}</div>
+        <div>最近沟通：${record.contactSummary}</div>
+        <div>历史反馈：${record.interviewFeedback.slice(0, 2).join(' / ')}</div>
         </div>
       </div>
     `;
@@ -1485,6 +1434,9 @@
     const age = 24 + ((record.id ? Number(String(record.id).split('-').pop()) : 0) % 7);
     const gender = ['女', '男'][((record.id ? Number(String(record.id).split('-').pop()) : 0) % 2)];
     const selfEvaluation = `具备 ${skills.slice(0, 3).join(' / ') || '跨部门协同与业务理解'} 的综合能力，擅长把抽象需求落地为可执行方案，能够在高节奏环境中推动项目迭代和结果提升。对新技术趋势保持敏感，沟通表达清晰，适合参与 ${title} 相关岗位。`;
+    const duplicateSignals = Array.isArray(record.duplicateSignals) && record.duplicateSignals.length
+      ? record.duplicateSignals
+      : ['无明显重复风险'];
 
     return {
       name,
@@ -1500,6 +1452,7 @@
       skills: skills.length ? skills : ['AI', '产品经理', '增长', '数据分析'],
       certificates: certs,
       selfEvaluation,
+      duplicateSignals,
     };
   }
 
@@ -1509,11 +1462,15 @@
       company: record.company,
       salary: record.salary || `${record.salaryMin}k-${record.salaryMax}k/月`,
       benefits: Array.isArray(record.companyBenefits) && record.companyBenefits.length ? record.companyBenefits : ['五险一金', '弹性工作', '年终奖'],
-      experience: record.yearsOfExperience ? `${Number(record.yearsOfExperience).toFixed(1)}年` : '1-3年',
+      experience: record.requiredExperience || (record.yearsOfExperience ? `${Number(record.yearsOfExperience).toFixed(1)}年` : '1-3年'),
+      education: record.education || '本科优先',
+      workEnvironment: record.workEnvironment || '混合办公 / 可远程 2 天',
+      technicalSkills: Array.isArray(record.technicalSkills) && record.technicalSkills.length ? record.technicalSkills : (Array.isArray(record.skills) ? record.skills : ['AI', '产品经理', '增长']),
       urgency: record.urgency || '正常',
       pulse: record.hiringPulseDays ? `近 ${record.hiringPulseDays} 天有招聘动静` : '岗位持续更新',
       skills: Array.isArray(record.skills) ? record.skills : ['AI', '产品经理', '增长'],
       summary: record.jobSummary || `${record.title}岗位关注业务理解、项目落地和协同推进能力，支持Flexible Work 与高成长路径。`,
+      jobContent: record.jobContent || '负责业务梳理、需求管理、跨团队协同和落地推进，协助团队实现业务指标与用户价值提升。',
     };
   }
 
@@ -1570,8 +1527,29 @@
 
           <section class="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
             <div class="mb-3 text-[10px] uppercase tracking-[0.18em] text-slate-400">岗位要求</div>
-            <div class="flex flex-wrap gap-2">
-              ${job.skills.map((skill) => `<span class="rounded-full border border-sky-400/40 bg-sky-500/10 px-2.5 py-1 text-[11px] text-sky-100">${skill}</span>`).join('')}
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
+                <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">工作年限</div>
+                <div class="mt-2 text-sm font-semibold text-slate-100">${job.experience}</div>
+              </div>
+              <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
+                <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">学历背景</div>
+                <div class="mt-2 text-sm font-semibold text-slate-100">${job.education}</div>
+              </div>
+              <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
+                <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">技术能力</div>
+                <div class="mt-2 flex flex-wrap gap-2">
+                  ${job.technicalSkills.map((skill) => `<span class="rounded-full border border-sky-400/40 bg-sky-500/10 px-2 py-1 text-[10px] text-sky-100">${skill}</span>`).join('')}
+                </div>
+              </div>
+              <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
+                <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">工作环境</div>
+                <div class="mt-2 text-sm font-semibold text-slate-100">${job.workEnvironment}</div>
+              </div>
+            </div>
+            <div class="mt-4 rounded-xl border border-slate-700 bg-slate-950/60 p-3">
+              <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">工作内容</div>
+              <div class="mt-2 text-sm leading-7 text-slate-200">${job.jobContent}</div>
             </div>
           </section>
         </div>
@@ -1606,6 +1584,13 @@
                 <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">邮箱</div>
                 <div class="mt-2 text-base font-semibold text-slate-100">${resume.email}</div>
               </div>
+            </div>
+          </section>
+
+          <section class="rounded-2xl border border-amber-400/30 bg-amber-500/5 p-4">
+            <div class="mb-3 text-[10px] uppercase tracking-[0.18em] text-amber-200">Duplicate Risk</div>
+            <div class="space-y-2 text-sm text-amber-50">
+              ${(resume.duplicateSignals || ['无明显重复风险']).map((signal) => `<div class="rounded-xl border border-amber-400/30 bg-slate-900/60 px-3 py-2">• ${signal}</div>`).join('')}
             </div>
           </section>
 
@@ -1666,47 +1651,377 @@
     }
   }
 
+  function buildGameCompanyJobPosts() {
+    const gameJobs = [
+      {
+        company: '腾讯天美工作室群',
+        title: '开放世界设计师',
+        salary: '25k-40k/月',
+        urgency: '急聘',
+        hiringPulseDays: 2,
+        requiredExperience: '2-4年',
+        education: '本科',
+        workEnvironment: '总部办公 / 周三驻场',
+        technicalSkills: ['游戏设计', 'UGC系统', '玩法策划', '数据分析'],
+        jobContent: '负责开放世界玩法设计、关卡体验优化与用户反馈迭代，推动全新版本内容推进与玩家留存提升。',
+        responsibilities: [
+          '负责大世界玩法设计、关卡体验优化与用户反馈迭代',
+          '参与版本策划和内容排期，推动玩法与系统迭代落地',
+          '结合玩家数据和测试反馈持续优化体验与留存表现',
+        ],
+        companyBenefits: ['五险一金', '年终奖', '免费晚餐'],
+      },
+      {
+        company: '网易游戏',
+        title: '游戏运营策划',
+        salary: '22k-35k/月',
+        urgency: '正在招聘',
+        hiringPulseDays: 5,
+        requiredExperience: '3-5年',
+        education: '本科优先',
+        workEnvironment: '混合办公 / 近地铁',
+        technicalSkills: ['活动运营', '增长分析', '游戏运营', '用户研究'],
+        jobContent: '负责活动策划、用户增长与版本运营策略，结合玩家数据持续提升活跃与转化效果。',
+        responsibilities: [
+          '负责活动策划和版本运营方案输出',
+          '跟踪用户增长和留存指标，推动运营策略持续优化',
+          '联动策划、美术、研发团队推进重点活动落地',
+        ],
+        companyBenefits: ['带薪年假', '团建活动', '弹性工作'],
+      },
+      {
+        company: '米哈游',
+        title: '3D 技术美术',
+        salary: '28k-45k/月',
+        urgency: '急聘',
+        hiringPulseDays: 3,
+        requiredExperience: '1-3年',
+        education: '本科及以上',
+        workEnvironment: '弹性办公 / 需现场协作',
+        technicalSkills: ['3D建模', '材质制作', 'Unity', 'Maya'],
+        jobContent: '负责游戏角色与场景美术效果输出，参与视觉规范制定和资源优化，提升产品整体美术表现。',
+        responsibilities: [
+          '负责角色、场景等美术资产的制作与优化',
+          '协同美术主管和研发团队把控视觉效果与质量标准',
+          '持续优化资源流程，提升迭代效率与产品美术统一性',
+        ],
+        companyBenefits: ['补充医疗', '股权激励', '免费体检'],
+      },
+      {
+        company: '光遇工作室',
+        title: '游戏数据分析师',
+        salary: '20k-32k/月',
+        urgency: '正在招聘',
+        hiringPulseDays: 6,
+        requiredExperience: '2年以上',
+        education: '大专',
+        workEnvironment: '近地铁办公 / 周末双休',
+        technicalSkills: ['SQL', '数据分析', 'BI', '游戏增长'],
+        jobContent: '负责游戏运营数据分析、用户行为研究与增长指标跟踪，支持重点玩法和版本运营决策。',
+        responsibilities: [
+          '负责用户行为分析和运营指标监控',
+          '梳理数据看板并输出增长与留存洞察',
+          '为版本迭代和活动策略提供量化参考建议',
+        ],
+        companyBenefits: ['双休', '餐补', '团队氛围'],
+      },
+    ];
+
+    return gameJobs.map((job, index) => ({
+      ...job,
+      id: `game-job-${index + 1}`,
+      type: 'job',
+      skills: job.technicalSkills,
+      jobSummary: job.jobContent,
+      recruiter: {
+        name: '招聘负责人',
+        phone: '13900000000',
+        email: 'hr@studio.com',
+      },
+    }));
+  }
+
+  function getJobSkillTokens(job) {
+    if (!job) return [];
+    const rawSkills = Array.isArray(job.technicalSkills)
+      ? job.technicalSkills
+      : (Array.isArray(job.skills) ? job.skills : []);
+    return rawSkills
+      .flatMap((skill) => String(skill).split(/[，,、]/))
+      .map((skill) => skill.trim())
+      .filter(Boolean);
+  }
+
+  function renderJobCandidateMatches(job) {
+    const candidateList = document.getElementById('jobCandidateList');
+    const matchScore = document.getElementById('jobEditorMatchScore');
+    const candidateCount = document.getElementById('jobEditorCandidateCount');
+    const urgencyBadge = document.getElementById('jobEditorUrgencyBadge');
+    const aiTips = document.getElementById('jobEditorAiTips');
+
+    const jobSkills = getJobSkillTokens(job);
+    const basePool = Array.isArray(mockData.talents) ? mockData.talents : [];
+    const ranked = basePool
+      .map((talent) => {
+        const talentSkills = Array.isArray(talent.skills) ? talent.skills : [];
+        const overlap = talentSkills.filter((skill) => jobSkills.some((item) => item.includes(skill) || skill.includes(item))).length;
+        const experienceBonus = Number(String(talent.experience || '1').match(/\d+/)?.[0] || 1);
+        const distanceBonus = talent.distanceKm ? Math.max(0, 12 - talent.distanceKm) : 4;
+        const salaryScore = talent.salaryValue ? Math.min(20, Math.max(0, talent.salaryValue / 2000)) : 10;
+        const score = Math.min(99, Math.max(68, Math.round((overlap * 24) + (experienceBonus * 4) + distanceBonus + salaryScore)));
+        return {
+          ...talent,
+          match: score,
+        };
+      })
+      .sort((a, b) => b.match - a.match)
+      .slice(0, 5);
+
+    if (candidateList) {
+      candidateList.innerHTML = ranked.map((talent) => `
+        <div class="rounded-xl border border-slate-700 bg-slate-950/80 p-2">
+          <div class="flex items-center justify-between gap-2">
+            <div class="font-medium text-white">${talent.name}</div>
+            <span class="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-200">${talent.match}%</span>
+          </div>
+          <div class="mt-1 text-[10px] text-slate-400">${talent.title || '候选人'} · ${talent.experience || '3年经验'}</div>
+          <div class="mt-2 flex flex-wrap gap-1">
+            ${(Array.isArray(talent.skills) ? talent.skills : []).slice(0, 3).map((skill) => `
+              <span class="rounded-full border border-slate-600 bg-slate-800/80 px-1.5 py-0.5 text-[9px] text-slate-200">${skill}</span>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    if (candidateCount) {
+      candidateCount.textContent = String(ranked.length || 0);
+    }
+    if (matchScore) {
+      matchScore.textContent = `${ranked[0]?.match || 92}%`;
+    }
+    if (urgencyBadge) {
+      urgencyBadge.textContent = job?.urgency || '急聘';
+      urgencyBadge.className = `rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${
+        (job?.urgency || '急聘') === '急聘'
+          ? 'border-amber-400/30 bg-amber-500/10 text-amber-200'
+          : 'border-sky-400/30 bg-sky-500/10 text-sky-200'
+      }`;
+    }
+    if (aiTips) {
+      const recommendations = [
+        `优先突出“${jobSkills.slice(0, 2).join(' / ') || '业务能力'}”相关能力`,
+        '强调跨团队协作与数据驱动决策思维',
+        '增加弹性办公和成长路径能提升候选人兴趣',
+      ];
+      aiTips.innerHTML = recommendations.map((text) => `<li>• ${text}</li>`).join('');
+    }
+  }
+
+  function setEmployerJobForm(job) {
+    const companyEl = document.getElementById('jobCompanyInput');
+    const titleEl = document.getElementById('jobTitleInput');
+    const experienceEl = document.getElementById('jobExperienceInput');
+    const educationEl = document.getElementById('jobEducationInput');
+    const environmentEl = document.getElementById('jobEnvironmentInput');
+    const skillsEl = document.getElementById('jobSkillsInput');
+    const responsibilitiesEl = document.getElementById('jobResponsibilityInput');
+    const benefitsEl = document.getElementById('jobBenefitsInput');
+    const summaryEl = document.getElementById('jobSummaryInput');
+
+    if (!companyEl || !titleEl || !experienceEl || !educationEl || !environmentEl || !skillsEl || !responsibilitiesEl || !benefitsEl || !summaryEl) return;
+
+    const responsibilitiesText = Array.isArray(job?.responsibilities) ? job.responsibilities.join('\n') : '';
+    companyEl.value = job?.company || '';
+    titleEl.value = job?.title || '';
+    experienceEl.value = job?.requiredExperience || '';
+    educationEl.value = job?.education || '';
+    environmentEl.value = job?.workEnvironment || '';
+    skillsEl.value = Array.isArray(job?.technicalSkills) ? job.technicalSkills.join('，') : (Array.isArray(job?.skills) ? job.skills.join('，') : '');
+    responsibilitiesEl.value = responsibilitiesText || job?.jobContent || '';
+    benefitsEl.value = Array.isArray(job?.companyBenefits) ? job.companyBenefits.join('，') : '';
+    summaryEl.value = job?.jobContent || job?.jobSummary || '';
+    renderJobCandidateMatches(job);
+  }
+
+  function saveEmployerJobFromForm() {
+    const companyEl = document.getElementById('jobCompanyInput');
+    const titleEl = document.getElementById('jobTitleInput');
+    const experienceEl = document.getElementById('jobExperienceInput');
+    const educationEl = document.getElementById('jobEducationInput');
+    const environmentEl = document.getElementById('jobEnvironmentInput');
+    const skillsEl = document.getElementById('jobSkillsInput');
+    const responsibilitiesEl = document.getElementById('jobResponsibilityInput');
+    const benefitsEl = document.getElementById('jobBenefitsInput');
+    const summaryEl = document.getElementById('jobSummaryInput');
+
+    if (!companyEl || !titleEl || !experienceEl || !educationEl || !environmentEl || !skillsEl || !responsibilitiesEl || !benefitsEl || !summaryEl) return;
+
+    const existingJob = selectedEmployerJob || null;
+    const nextJob = {
+      id: existingJob?.id || `game-job-${Date.now()}`,
+      company: companyEl.value.trim() || '公司名称未填写',
+      title: titleEl.value.trim() || '岗位名称',
+      salary: existingJob?.salary || '20k-35k/月',
+      urgency: existingJob?.urgency || '正在招聘',
+      hiringPulseDays: existingJob?.hiringPulseDays || 3,
+      requiredExperience: experienceEl.value.trim() || '1-3年',
+      education: educationEl.value.trim() || '本科',
+      workEnvironment: environmentEl.value.trim() || '混合办公',
+      technicalSkills: skillsEl.value.split(/[，,、]/).map((item) => item.trim()).filter(Boolean) || ['游戏策划'],
+      responsibilities: responsibilitiesEl.value.split(/[\n]/).map((item) => item.trim()).filter(Boolean) || ['负责相关业务推进'],
+      companyBenefits: benefitsEl.value.split(/[，,、]/).map((item) => item.trim()).filter(Boolean) || ['五险一金'],
+      jobContent: summaryEl.value.trim() || responsibilitiesEl.value.trim() || '负责相关业务推进与交付。',
+      jobSummary: summaryEl.value.trim() || responsibilitiesEl.value.trim() || '负责相关业务推进与交付。',
+      type: 'job',
+      recruiter: existingJob?.recruiter || { name: '招聘负责人', phone: '13900000000', email: 'hr@studio.com' },
+      skills: skillsEl.value.split(/[，,、]/).map((item) => item.trim()).filter(Boolean) || ['游戏策划'],
+      companyBenefits: benefitsEl.value.split(/[，,、]/).map((item) => item.trim()).filter(Boolean) || ['五险一金'],
+    };
+
+    const existingIndex = employerJobPosts.findIndex((job) => job.id === nextJob.id);
+    if (existingIndex >= 0) {
+      employerJobPosts.splice(existingIndex, 1, nextJob);
+    } else {
+      employerJobPosts.unshift(nextJob);
+    }
+
+    selectedEmployerJob = nextJob;
+    renderRecruitingPulse();
+    renderJobCandidateMatches(nextJob);
+    setEmployerJobForm(nextJob);
+  }
+
+  function renderEmployerJobEditor() {
+    const editor = document.getElementById('jobPublishEditor');
+    if (!editor) return;
+
+    if (selectedRole !== 'employer') {
+      editor.classList.add('hidden');
+      editor.classList.remove('job-editor-modal');
+      editor.classList.remove('job-editor-dialog');
+      return;
+    }
+
+    editor.classList.remove('hidden');
+    if (!selectedEmployerJob && employerJobPosts.length > 0) {
+      selectedEmployerJob = employerJobPosts[0];
+    }
+    if (selectedEmployerJob) {
+      setEmployerJobForm(selectedEmployerJob);
+    }
+  }
+
+  function openGameJobEditor(job) {
+    selectedEmployerJob = job;
+    const editor = document.getElementById('jobPublishEditor');
+    if (!editor) return;
+
+    editor.classList.remove('hidden');
+    editor.classList.add('job-editor-modal');
+    editor.classList.add('job-editor-dialog');
+    editor.setAttribute('aria-modal', 'true');
+    setEmployerJobForm(job);
+
+    editor.onclick = (event) => {
+      if (event.target === editor) {
+        closeGameJobEditor();
+      }
+    };
+  }
+
+  function closeGameJobEditor() {
+    const editor = document.getElementById('jobPublishEditor');
+    if (!editor) return;
+    editor.classList.add('hidden');
+    editor.classList.remove('job-editor-modal');
+    editor.classList.remove('job-editor-dialog');
+    editor.removeAttribute('aria-modal');
+    editor.onclick = null;
+  }
+
   function renderRecruitingPulse() {
     const panel = document.getElementById('recruitingPulsePanel');
     const title = document.getElementById('recruitingPulseTitle');
+    const section = panel ? panel.closest('section') : null;
     if (!panel) return;
 
-    const pulseList = [...mockData.jobs]
+    // 求职者视角下，删除“招聘方动向”板块，避免 UI 中出现与当前角色不一致的内容。
+    // 这样既保留招聘方模块的岗位发布能力，又让求职者页面更聚焦在岗位发现与推荐。
+    if (section) {
+      section.classList.toggle('hidden', selectedRole === 'jobseeker');
+    }
+    if (selectedRole === 'jobseeker') {
+      panel.innerHTML = '';
+      return;
+    }
+
+    const pulseSource = selectedRole === 'employer'
+      ? (employerJobPosts.length ? employerJobPosts : buildGameCompanyJobPosts())
+      : [...mockData.jobs];
+    const pulseList = pulseSource
       .sort((a, b) => (a.hiringPulseDays || 99) - (b.hiringPulseDays || 99))
       .slice(0, 4)
       .map((job) => {
         const urgency = job.urgency === '急聘' ? '急聘' : '正在招聘';
         const benefitText = Array.isArray(job.companyBenefits) ? job.companyBenefits.slice(0, 2).join(' / ') : '五险一金';
+        const isGameJob = selectedRole === 'employer';
+        const cardClass = isGameJob
+          ? 'cursor-pointer rounded-2xl border border-amber-400/35 bg-amber-500/5 p-2.5 transition hover:border-amber-300/50 hover:bg-amber-500/10'
+          : 'rounded-2xl border border-slate-700 bg-slate-900/70 p-2.5';
+
         return `
-          <div class="rounded-2xl border border-slate-700 bg-slate-900/70 p-2.5">
+          <div class="${cardClass}" data-job-id="${job.id || ''}" data-role="${selectedRole}">
             <div class="flex items-center justify-between gap-2">
               <div class="text-xs font-semibold text-white">${job.company}</div>
               <span class="rounded-full border border-amber-400/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] text-amber-100">${urgency}</span>
             </div>
             <div class="mt-1 text-[11px] text-slate-300">${job.title} · ${job.salary}</div>
             <div class="mt-2 text-[10px] text-slate-400">福利：${benefitText} · 近 ${job.hiringPulseDays || 7} 天有招聘动静</div>
+            ${isGameJob ? '<div class="mt-2 text-[10px] text-amber-200">点击可修改岗位内容</div>' : ''}
           </div>
         `;
       })
       .join('');
 
     if (title) {
-      title.textContent = selectedRole === 'jobseeker' ? '招聘方动向' : '招聘动向';
+      title.textContent = selectedRole === 'jobseeker' ? '招聘方动向' : '岗位发布';
     }
 
     panel.innerHTML = pulseList || '<div class="rounded-xl border border-slate-700 bg-slate-900/70 p-3 text-sm text-slate-400">暂无最近招聘动向</div>';
+
+    if (selectedRole === 'employer') {
+      panel.querySelectorAll('[data-job-id]').forEach((card) => {
+        const jobId = card.getAttribute('data-job-id');
+        const job = pulseSource.find((item) => (item.id || '') === jobId);
+        if (!job) return;
+        card.addEventListener('click', () => openGameJobEditor(job));
+      });
+    }
   }
 
   // 更新右侧顶部“AI 推荐榜单”列表：
   // 这里不仅展示最终分数，还展示各因子明细，避免黑箱推荐。
+  function syncRolePanels() {
+    document.querySelectorAll('.role-panel').forEach((panel) => {
+      const role = panel.dataset.rolePanel;
+      const shouldShow = role === selectedRole;
+      panel.classList.toggle('hidden', !shouldShow);
+    });
+  }
+
   function renderRecommendationList(sortedRecords) {
-    const listEl = document.getElementById('recommendationList');
-    const titleEl = document.getElementById('recommendationTitle');
+    const listEl = selectedRole === 'jobseeker'
+      ? document.getElementById('jobSeekerRecommendationList')
+      : document.getElementById('employerRecommendationList');
+    const titleEl = selectedRole === 'jobseeker'
+      ? document.getElementById('jobSeekerRecommendationTitle')
+      : document.getElementById('employerRecommendationTitle');
     if (!listEl) return;
 
-    const entityLabel = selectedRole === 'jobseeker' ? '岗位推荐榜单' : '人才推荐榜单';
+    const entityLabel = selectedRole === 'jobseeker' ? 'AI 岗位推荐榜单' : 'AI 人才推荐榜单';
     if (titleEl) {
-      titleEl.textContent = `AI ${entityLabel}`;
+      titleEl.textContent = entityLabel;
     }
 
     listEl.innerHTML = '';
@@ -1727,9 +2042,10 @@
         ? `${record.company || record.source} · ${record.distanceKm}km`
         : `${record.title || record.company} · ${record.distanceKm}km`;
       const badgeText = selectedRole === 'jobseeker' ? '岗位' : '人才';
+      const actionLabel = selectedRole === 'jobseeker' ? '查看岗位详情' : '查看候选人简历';
 
       const item = document.createElement('li');
-      item.className = 'cursor-pointer rounded-2xl border border-amber-400/25 bg-amber-500/5 px-3 py-2 transition hover:border-amber-300/50 hover:bg-amber-500/10';
+      item.className = 'rounded-2xl border border-amber-400/25 bg-amber-500/5 px-3 py-2 transition hover:border-amber-300/50 hover:bg-amber-500/10';
       item.innerHTML = `
         <div class="flex items-center justify-between gap-3">
           <div>
@@ -1748,8 +2064,37 @@
           </div>
         </div>
         <div class="mt-2 text-[10px] text-amber-100/80">为什么推荐：${reasonText}</div>
+        <div class="mt-3 flex items-center justify-between gap-2">
+          <button type="button" class="recommendation-detail-btn rounded-full border border-amber-300/40 bg-amber-500/10 px-2.5 py-1 text-[10px] font-medium text-amber-100 transition hover:bg-amber-500/20">
+            ${actionLabel}
+          </button>
+          <button type="button" class="recommendation-action-btn rounded-full border border-sky-400/35 bg-sky-500/10 px-2.5 py-1 text-[10px] font-medium text-sky-100 transition hover:bg-sky-500/20">
+            ${selectedRole === 'jobseeker' ? '立即申请' : '发起联系'}
+          </button>
+        </div>
       `;
-      item.addEventListener('click', () => openResumeModal(record));
+
+      const detailButton = item.querySelector('.recommendation-detail-btn');
+      const actionButton = item.querySelector('.recommendation-action-btn');
+
+      detailButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        selectedRecord = record;
+        renderDetailDrawer();
+        openResumeModal(record);
+      });
+
+      actionButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const actionText = selectedRole === 'jobseeker' ? '已将岗位加入申请清单，后续可直接同步到投递管理。' : '已生成联系邀约，建议在 24 小时内跟进。';
+        alert(actionText);
+      });
+
+      item.addEventListener('click', () => {
+        selectedRecord = record;
+        renderDetailDrawer();
+        openResumeModal(record);
+      });
       listEl.appendChild(item);
     });
 
@@ -1785,8 +2130,10 @@
           document.getElementById('jobSeekerBtn').className = 'role-toggle rounded-xl border border-slate-700 bg-slate-800/70 px-3 py-2.5 text-sm font-semibold text-slate-300 transition hover:border-slate-500 hover:text-white';
         }
 
+        syncRolePanels();
         renderHeatZones();
         renderRecruitingPulse();
+        renderEmployerJobEditor();
         renderMapData();
         fetchAIRecommendation();
       });
@@ -1848,9 +2195,52 @@
     });
 
     document.getElementById('publishRoleBtn').addEventListener('click', () => {
-      const newRole = selectedRole === 'jobseeker' ? 'AI 产品经理' : '大模型运营';
-      alert(`已发布岗位：${newRole}，将同步到附近 ${selectedDistanceKm} 公里范围内的候选人/求职者看板。`);
+      const editor = document.getElementById('jobPublishEditor');
+      if (!selectedEmployerJob && employerJobPosts.length > 0) {
+        selectedEmployerJob = employerJobPosts[0];
+      }
+      if (selectedEmployerJob) {
+        setEmployerJobForm(selectedEmployerJob);
+      }
+      if (editor) {
+        editor.classList.remove('hidden');
+        editor.classList.add('job-editor-modal');
+        editor.classList.add('job-editor-dialog');
+      }
     });
+
+    const closeJobEditorBtn = document.getElementById('closeJobEditorBtn');
+    if (closeJobEditorBtn) {
+      closeJobEditorBtn.addEventListener('click', closeGameJobEditor);
+    }
+
+    const saveEmployerJobBtn = document.getElementById('saveEmployerJobBtn');
+    if (saveEmployerJobBtn) {
+      saveEmployerJobBtn.addEventListener('click', () => {
+        saveEmployerJobFromForm();
+        closeGameJobEditor();
+        alert('岗位已成功保存，并已同步到招聘地图与招聘榜单。');
+      });
+    }
+
+    const newEmployerJobBtn = document.getElementById('newEmployerJobBtn');
+    if (newEmployerJobBtn) {
+      newEmployerJobBtn.addEventListener('click', () => {
+        selectedEmployerJob = null;
+        setEmployerJobForm({
+          company: '',
+          title: '',
+          requiredExperience: '',
+          education: '',
+          workEnvironment: '',
+          technicalSkills: [],
+          responsibilities: [],
+          companyBenefits: [],
+          jobContent: '',
+          jobSummary: '',
+        });
+      });
+    }
 
     const radiusInput = document.getElementById('distanceRange');
     const distanceNumberInput = document.getElementById('distanceNumber');
@@ -1979,10 +2369,12 @@
     initializeData();
     initMap();
     bindEvents();
+    syncRolePanels();
 
     // 页面首次默认执行 AI 推荐，确保地图上有金色高亮点。
     setTimeout(() => {
       fetchAIRecommendation();
+      syncRolePanels();
     }, 120);
   }
 
