@@ -649,6 +649,8 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap 贡献者',
       maxZoom: 19,
+      detectRetina: true,
+      subdomains: ['a', 'b', 'c'],
     }).addTo(map);
 
     markerLayer = L.layerGroup().addTo(map);
@@ -683,7 +685,13 @@
       opacity: 0.45,
     }).addTo(radarCircleLayer);
 
-    map.fitBounds(glowCircle.getBounds().pad(0.35));
+    // 真正的地图展示逻辑应以真实地理中心和街区粒度为主，
+    // 而不是把视野强行锁定在“随机圆圈半径”的 bounds 上。
+    // 这样就能看到真实的道路、商业区和街道网络，而不是只看一个抽象红蓝圈。
+    if (map && map.getZoom() < 13) {
+      map.setView([CENTER_POINT.lat, CENTER_POINT.lng], 14, { animate: false });
+    }
+    map && map.invalidateSize();
   }
 
   // 每个 Marker 由自定义 divIcon 生成，颜色区分岗位 / 人才；
@@ -1021,6 +1029,18 @@
   }
 
   // 更改大概地理位置：不要求精确到经纬度，而是按地理区域中心重置地图和 Mock 数据。
+  // 注意：这里不再把地图强行缩放到半径圈，而是按照真实地理视野来展示周边的街道和商业区。
+  function refreshMapContext() {
+    if (!map) return;
+    const zoomLevel = 15;
+    map.setView([CENTER_POINT.lat, CENTER_POINT.lng], zoomLevel, {
+      animate: true,
+      duration: 0.45,
+    });
+    map.invalidateSize();
+    renderHeatZones();
+  }
+
   function applyCenterLocation() {
     const inputValue = (document.getElementById('locationText')?.value || '').trim();
 
@@ -1057,10 +1077,7 @@
       mapTitleEl.textContent = selectedRole === 'jobseeker' ? '求职者视角 · 岗位地图' : '招聘方视角 · 人才地图';
     }
 
-    if (map) {
-      map.setView([CENTER_POINT.lat, CENTER_POINT.lng], 13);
-      renderHeatZones();
-    }
+    refreshMapContext();
     renderMapData();
     fetchAIRecommendation();
   }
