@@ -16,7 +16,7 @@
     // 画像层：适合地图聚合和 AI 推荐，字段必须稳定，便于持续刷新。
     buildPortrait(record) {
       const skillSet = Array.isArray(record.skills) ? record.skills : [];
-      const years = Math.max(1, Math.min(12, Math.round((record.salaryMin || 12) / 10) || 3));
+      const years = Number(Math.max(1, Math.min(12, record.yearsOfExperience || (record.salaryMin || 12) / 10)).toFixed(1));
       const recentActivity = record.lastContact ? new Date(record.lastContact) : new Date();
 
       return {

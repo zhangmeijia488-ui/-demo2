@@ -1172,6 +1172,149 @@
     return generateAIRecommendation();
   }
 
+  // 统一构造候选人简历内容：重点展示个人资料、教育背景、工作经历、技能证书和自我评价。
+  // 这样点击推荐榜单中的“人物”时，不只是看匹配分数，还能直接查看具备的信息，方便招聘方筛人。
+  function buildResumeData(record) {
+    const name = record.name || '候选人';
+    const title = record.title || 'AI/互联网岗位候选人';
+    const skills = Array.isArray(record.skills) ? record.skills : [];
+    const educationPool = [
+      { school: '北京大学', major: '计算机科学与技术', degree: '本科', time: '2015.09 - 2019.06' },
+      { school: '清华大学', major: '人工智能', degree: '硕士', time: '2019.09 - 2022.06' },
+      { school: '复旦大学', major: '信息管理与信息系统', degree: '本科', time: '2013.09 - 2017.06' },
+      { school: '北京理工大学', major: '软件工程', degree: '本科', time: '2014.09 - 2018.06' },
+    ];
+    const workPool = [
+      { company: 'A公司', role: 'AI产品经理', time: '2022.07 - 2024.09', desc: '负责大模型产品需求分析、用户调研、跨团队协同与落地策略，推动从 0 到 1 的功能上线。' },
+      { company: 'B公司', role: '产品运营经理', time: '2020.07 - 2022.06', desc: '负责增长策略设计、数据分析洞察与用户运营，带动关键指标提升。' },
+      { company: 'C公司', role: '数据分析师', time: '2018.07 - 2020.06', desc: '搭建数据指标体系和业务分析框架，支撑产品迭代和运营决策。' },
+    ];
+    const certificatePool = [
+      'PMP 项目管理资格',
+      'Google Analytics 认证',
+      'AWS Solution Architect Associate',
+      'AI 产品经理实战认证',
+      'Scrum Master 认证',
+    ];
+
+    const education = educationPool[(record.id ? Number(String(record.id).split('-').pop()) : 0) % educationPool.length];
+    const workExperience = workPool[(record.id ? Number(String(record.id).split('-').pop()) : 0) % workPool.length];
+    const certs = certificatePool.slice(0, 3 + ((record.id ? Number(String(record.id).split('-').pop()) : 0) % 2));
+    const age = 24 + ((record.id ? Number(String(record.id).split('-').pop()) : 0) % 7);
+    const gender = ['女', '男'][((record.id ? Number(String(record.id).split('-').pop()) : 0) % 2)];
+    const selfEvaluation = `具备 ${skills.slice(0, 3).join(' / ') || '跨部门协同与业务理解'} 的综合能力，擅长把抽象需求落地为可执行方案，能够在高节奏环境中推动项目迭代和结果提升。对新技术趋势保持敏感，沟通表达清晰，适合参与 ${title} 相关岗位。`;
+
+    return {
+      name,
+      title,
+      gender,
+      age,
+      phone: record.contact?.phone || '188****1234',
+      email: record.contact?.email || 'candidate@example.com',
+      city: '北京',
+      expectedSalary: record.salary || '期望 20k-35k/月',
+      education,
+      workExperience,
+      skills: skills.length ? skills : ['AI', '产品经理', '增长', '数据分析'],
+      certificates: certs,
+      selfEvaluation,
+    };
+  }
+
+  function openResumeModal(record) {
+    const modal = document.getElementById('resumeModal');
+    const content = document.getElementById('resumeModalContent');
+    const title = document.getElementById('resumeModalTitle');
+    if (!modal || !content || !title) return;
+
+    const resume = buildResumeData(record);
+    title.textContent = `${resume.name} · ${resume.title}`;
+    content.innerHTML = `
+      <div class="space-y-5 pb-6">
+        <section class="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
+          <div class="mb-4 flex items-center justify-between">
+            <div>
+              <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">Personal Information</div>
+              <h4 class="mt-2 text-2xl font-bold text-white">${resume.name}</h4>
+            </div>
+            <div class="rounded-full border border-emerald-400/40 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-200">${resume.city} · ${resume.age}岁</div>
+          </div>
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
+              <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">岗位方向</div>
+              <div class="mt-2 text-base font-semibold text-sky-200">${resume.title}</div>
+            </div>
+            <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
+              <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">薪资期望</div>
+              <div class="mt-2 text-base font-semibold text-amber-200">${resume.expectedSalary}</div>
+            </div>
+            <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
+              <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">手机号</div>
+              <div class="mt-2 text-base font-semibold text-slate-100">${resume.phone}</div>
+            </div>
+            <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
+              <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">邮箱</div>
+              <div class="mt-2 text-base font-semibold text-slate-100">${resume.email}</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
+          <div class="mb-3 text-[10px] uppercase tracking-[0.18em] text-slate-400">Education</div>
+          <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <div class="text-lg font-semibold text-white">${resume.education.school}</div>
+                <div class="mt-1 text-sm text-slate-300">${resume.education.major} · ${resume.education.degree}</div>
+              </div>
+              <div class="text-xs text-slate-400">${resume.education.time}</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
+          <div class="mb-3 text-[10px] uppercase tracking-[0.18em] text-slate-400">Work Experience</div>
+          <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <div class="text-lg font-semibold text-white">${resume.workExperience.company}</div>
+                <div class="mt-1 text-sm text-sky-200">${resume.workExperience.role}</div>
+              </div>
+              <div class="text-xs text-slate-400">${resume.workExperience.time}</div>
+            </div>
+            <div class="mt-3 text-sm leading-6 text-slate-300">${resume.workExperience.desc}</div>
+          </div>
+        </section>
+
+        <section class="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
+          <div class="mb-3 text-[10px] uppercase tracking-[0.18em] text-slate-400">Skills & Certificates</div>
+          <div class="mb-4 flex flex-wrap gap-2">
+            ${resume.skills.map((skill) => `<span class="rounded-full border border-sky-400/40 bg-sky-500/10 px-2.5 py-1 text-[11px] text-sky-100">${skill}</span>`).join('')}
+          </div>
+          <div class="flex flex-wrap gap-2">
+            ${resume.certificates.map((cert) => `<span class="rounded-full border border-amber-400/40 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-100">${cert}</span>`).join('')}
+          </div>
+        </section>
+
+        <section class="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
+          <div class="mb-3 text-[10px] uppercase tracking-[0.18em] text-slate-400">Self Evaluation</div>
+          <div class="rounded-xl border border-slate-700 bg-slate-950/60 p-3 text-sm leading-7 text-slate-200">${resume.selfEvaluation}</div>
+        </section>
+      </div>
+    `;
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+
+  function closeResumeModal() {
+    const modal = document.getElementById('resumeModal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+  }
+
   // 更新右侧顶部“AI 推荐榜单”列表：
   // 这里不仅展示最终分数，还展示各因子明细，避免黑箱推荐。
   function renderRecommendationList(sortedRecords) {
@@ -1190,7 +1333,7 @@
         .join(' · ');
 
       const item = document.createElement('li');
-      item.className = 'rounded-2xl border border-amber-400/25 bg-amber-500/5 px-3 py-2';
+      item.className = 'cursor-pointer rounded-2xl border border-amber-400/25 bg-amber-500/5 px-3 py-2 transition hover:border-amber-300/50 hover:bg-amber-500/10';
       item.innerHTML = `
         <div class="flex items-center justify-between gap-3">
           <div>
@@ -1207,6 +1350,7 @@
         </div>
         <div class="mt-2 text-[10px] text-amber-100/80">为什么推荐：${factorsText}</div>
       `;
+      item.addEventListener('click', () => openResumeModal(record));
       listEl.appendChild(item);
     });
   }
@@ -1249,6 +1393,20 @@
       selectedRecord = null;
       renderDetailDrawer();
     });
+
+    const resumeModal = document.getElementById('resumeModal');
+    if (resumeModal) {
+      resumeModal.addEventListener('click', (event) => {
+        if (event.target === resumeModal) {
+          closeResumeModal();
+        }
+      });
+    }
+
+    const closeResumeModalBtn = document.getElementById('closeResumeModalBtn');
+    if (closeResumeModalBtn) {
+      closeResumeModalBtn.addEventListener('click', closeResumeModal);
+    }
 
     document.querySelectorAll('.profile-tab').forEach((button) => {
       button.addEventListener('click', () => {
