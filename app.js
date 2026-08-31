@@ -735,11 +735,16 @@
       preferCanvas: true,
     }).setView([CENTER_POINT.lat, CENTER_POINT.lng], 13);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap 贡献者',
-      maxZoom: 19,
+    // 高德/导航地图的感觉，核心不是品牌本身，而是：
+    // 1）清晰的道路与街道层级；
+    // 2）更强的城市导航视觉；
+    // 3）适合北京 / 上海 / 深圳 / 广州等城市地图切换。
+    // 这里使用 Carto 的街道风格底图，能更像城市导航地图，同时无需密钥。
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+      subdomains: 'abcd',
+      maxZoom: 20,
       detectRetina: true,
-      subdomains: ['a', 'b', 'c'],
     }).addTo(map);
 
     markerLayer = L.layerGroup().addTo(map);
@@ -1212,7 +1217,7 @@
   // 注意：这里不再把地图强行缩放到半径圈，而是按照真实地理视野来展示周边的街道和商业区。
   function refreshMapContext() {
     if (!map) return;
-    const zoomLevel = 15;
+    const zoomLevel = 14;
     map.setView([CENTER_POINT.lat, CENTER_POINT.lng], zoomLevel, {
       animate: true,
       duration: 0.45,
