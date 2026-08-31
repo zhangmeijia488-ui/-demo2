@@ -58,19 +58,108 @@
   let map;
   let markerLayer;
   let radarCircleLayer;
+  let districtLayer;
   let allMarkers = [];
   let selectedRecord = null;
   let selectedProfileTab = 'portrait';
 
   const LOCATION_PRESETS = {
-    '北京国贸': { lat: 39.914, lng: 116.455, name: '北京国贸' },
-    '北京CBD': { lat: 39.914, lng: 116.455, name: '北京CBD' },
-    '上海陆家嘴': { lat: 31.239, lng: 121.499, name: '上海陆家嘴' },
-    '上海静安': { lat: 31.229, lng: 121.457, name: '上海静安' },
-    '深圳湾区': { lat: 22.536, lng: 113.949, name: '深圳湾区' },
-    '深圳福田': { lat: 22.543, lng: 114.057, name: '深圳福田' },
-    '广州珠江新城': { lat: 23.123, lng: 113.323, name: '广州珠江新城' },
-    '成都天府': { lat: 30.572, lng: 104.066, name: '成都天府' },
+    '北京国贸': {
+      lat: 39.914,
+      lng: 116.455,
+      name: '北京国贸',
+      districts: [
+        { name: '国贸CBD', latOffset: 0.008, lngOffset: 0.01 },
+        { name: '三里屯', latOffset: 0.016, lngOffset: -0.008 },
+        { name: '朝外SOHO', latOffset: -0.006, lngOffset: 0.015 },
+        { name: '亮马桥', latOffset: -0.013, lngOffset: -0.014 },
+        { name: '地铁国贸站', latOffset: 0.004, lngOffset: 0.001 },
+      ],
+    },
+    '北京CBD': {
+      lat: 39.914,
+      lng: 116.455,
+      name: '北京CBD',
+      districts: [
+        { name: 'CBD核心', latOffset: 0.004, lngOffset: 0.006 },
+        { name: '建国门', latOffset: 0.013, lngOffset: -0.015 },
+        { name: '北京站', latOffset: -0.015, lngOffset: -0.012 },
+        { name: '金融街', latOffset: -0.02, lngOffset: 0.018 },
+        { name: '国贸商圈', latOffset: 0.009, lngOffset: 0.012 },
+      ],
+    },
+    '上海陆家嘴': {
+      lat: 31.239,
+      lng: 121.499,
+      name: '上海陆家嘴',
+      districts: [
+        { name: '陆家嘴金融区', latOffset: 0.006, lngOffset: 0.011 },
+        { name: '浦东CBD', latOffset: -0.002, lngOffset: 0.019 },
+        { name: '东方明珠', latOffset: 0.013, lngOffset: -0.006 },
+        { name: '世纪大道', latOffset: -0.011, lngOffset: 0.008 },
+        { name: '张江', latOffset: 0.023, lngOffset: -0.021 },
+      ],
+    },
+    '上海静安': {
+      lat: 31.229,
+      lng: 121.457,
+      name: '上海静安',
+      districts: [
+        { name: '静安寺', latOffset: 0.01, lngOffset: 0.007 },
+        { name: '南京西路', latOffset: -0.004, lngOffset: -0.009 },
+        { name: '上海中心', latOffset: 0.016, lngOffset: 0.014 },
+        { name: '西藏北路', latOffset: -0.019, lngOffset: 0.006 },
+        { name: '商务圈', latOffset: 0.005, lngOffset: 0.017 },
+      ],
+    },
+    '深圳湾区': {
+      lat: 22.536,
+      lng: 113.949,
+      name: '深圳湾区',
+      districts: [
+        { name: '湾区科技', latOffset: 0.006, lngOffset: 0.009 },
+        { name: '海岸城', latOffset: -0.009, lngOffset: -0.011 },
+        { name: '腾讯湾区', latOffset: 0.013, lngOffset: -0.003 },
+        { name: '深圳湾', latOffset: -0.018, lngOffset: 0.014 },
+        { name: '地铁湾区', latOffset: 0.002, lngOffset: 0.019 },
+      ],
+    },
+    '深圳福田': {
+      lat: 22.543,
+      lng: 114.057,
+      name: '深圳福田',
+      districts: [
+        { name: '福田中心', latOffset: 0.005, lngOffset: 0.007 },
+        { name: '深南大道', latOffset: -0.012, lngOffset: 0.01 },
+        { name: '购物中心', latOffset: 0.019, lngOffset: -0.009 },
+        { name: '桂圆路', latOffset: -0.024, lngOffset: 0.02 },
+        { name: '科技园', latOffset: 0.012, lngOffset: -0.02 },
+      ],
+    },
+    '广州珠江新城': {
+      lat: 23.123,
+      lng: 113.323,
+      name: '广州珠江新城',
+      districts: [
+        { name: '珠江新城', latOffset: 0.008, lngOffset: 0.009 },
+        { name: '花城湾', latOffset: -0.01, lngOffset: 0.012 },
+        { name: '天河北', latOffset: 0.017, lngOffset: -0.013 },
+        { name: '金融中心', latOffset: -0.015, lngOffset: 0.02 },
+        { name: '广州塔', latOffset: 0.011, lngOffset: -0.021 },
+      ],
+    },
+    '成都天府': {
+      lat: 30.572,
+      lng: 104.066,
+      name: '成都天府',
+      districts: [
+        { name: '天府CBD', latOffset: 0.009, lngOffset: 0.011 },
+        { name: '金融城', latOffset: -0.012, lngOffset: -0.009 },
+        { name: '天府广场', latOffset: 0.018, lngOffset: 0.009 },
+        { name: '科技园', latOffset: -0.021, lngOffset: 0.023 },
+        { name: '地铁天府站', latOffset: 0.006, lngOffset: -0.018 },
+      ],
+    },
   };
 
   // -------------------------
@@ -655,6 +744,7 @@
 
     markerLayer = L.layerGroup().addTo(map);
     radarCircleLayer = L.layerGroup().addTo(map);
+    districtLayer = L.layerGroup().addTo(map);
 
     renderHeatZones();
     renderMapData();
@@ -692,6 +782,51 @@
       map.setView([CENTER_POINT.lat, CENTER_POINT.lng], 14, { animate: false });
     }
     map && map.invalidateSize();
+    renderDistrictLandmarks();
+  }
+
+  function renderDistrictLandmarks() {
+    if (!map) return;
+    if (!districtLayer) return;
+
+    districtLayer.clearLayers();
+
+    const currentPreset = LOCATION_PRESETS[Object.keys(LOCATION_PRESETS).find((key) => {
+      const name = (CENTER_POINT.name || '').toLowerCase();
+      return name.includes(key.toLowerCase()) || key.toLowerCase().includes(name);
+    })] || {
+      districts: [
+        { name: CENTER_POINT.name || '当前区域', latOffset: 0, lngOffset: 0 },
+      ],
+    };
+
+    const districts = (currentPreset.districts || []).map((district) => ({
+      ...district,
+      lat: CENTER_POINT.lat + (district.latOffset || 0),
+      lng: CENTER_POINT.lng + (district.lngOffset || 0),
+    }));
+
+    districts.forEach((district) => {
+      const marker = L.marker([district.lat, district.lng], {
+        icon: L.divIcon({
+          className: 'district-label-wrapper',
+          html: `<div class="district-label">${district.name}</div>`,
+          iconSize: [90, 28],
+          iconAnchor: [45, 14],
+        }),
+      });
+      marker.addTo(districtLayer);
+    });
+
+    const centerMarker = L.circleMarker([CENTER_POINT.lat, CENTER_POINT.lng], {
+      radius: 6,
+      color: '#f8fafc',
+      fillColor: '#38bdf8',
+      fillOpacity: 1,
+      weight: 2,
+    }).addTo(districtLayer);
+
+    centerMarker.bindPopup(`<div style="min-width:120px; font-size:12px;"><div style="font-weight:700; color:#e2e8f0; margin-bottom:4px;">${CENTER_POINT.name}</div><div style="color:#cbd5e1;">商圈中心 / 地理重心</div></div>`);
   }
 
   // 每个 Marker 由自定义 divIcon 生成，颜色区分岗位 / 人才；
