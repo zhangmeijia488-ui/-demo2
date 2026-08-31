@@ -1358,11 +1358,22 @@
     });
 
     const locationInput = document.getElementById('locationText');
+    let locationDebounceTimer = null;
+
+    locationInput.addEventListener('input', () => {
+      clearTimeout(locationDebounceTimer);
+      locationDebounceTimer = setTimeout(() => {
+        applyCenterLocation();
+      }, 300);
+    });
+
     locationInput.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
+        clearTimeout(locationDebounceTimer);
         applyCenterLocation();
       }
     });
+
     document.getElementById('applyLocationBtn').addEventListener('click', applyCenterLocation);
   }
 
