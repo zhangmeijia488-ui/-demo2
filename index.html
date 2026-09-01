@@ -184,9 +184,34 @@
       .job-editor-dialog .job-field-half {
         grid-column: auto !important;
       }
+
+      .recommendation-btn--loading {
+        animation: recommendation-pulse 0.9s ease-in-out infinite alternate;
+        box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.28), 0 0 22px rgba(251, 191, 36, 0.22);
+      }
+
+      @keyframes recommendation-pulse {
+        0% {
+          transform: scale(1);
+          border-color: rgba(251, 191, 36, 0.4);
+          background: rgba(251, 191, 36, 0.08);
+        }
+        100% {
+          transform: scale(1.03);
+          border-color: rgba(251, 191, 36, 0.75);
+          background: rgba(251, 191, 36, 0.15);
+        }
+      }
     </style>
   </head>
   <body>
+    <div id="globalToast" class="pointer-events-none fixed right-6 top-6 z-[3000] max-w-sm translate-y-2 rounded-2xl border border-slate-700 bg-slate-900/95 px-4 py-3 text-sm text-slate-100 opacity-0 shadow-[0_20px_40px_rgba(15,23,42,0.45)] transition-all duration-200 ease-out">
+      <div class="flex items-start gap-3">
+        <span class="mt-0.5 inline-flex h-2.5 w-2.5 rounded-full bg-sky-400"></span>
+        <div id="globalToastText">提示</div>
+      </div>
+    </div>
+
     <div class="min-h-screen bg-slate-950 p-4 md:p-8">
       <div class="mx-auto flex max-w-[1700px] gap-4">
         <!-- 左侧控制面板：承担“身份切换 + 距离过滤 + AI 推荐”核心职责 -->
@@ -229,7 +254,7 @@
 
           <section class="mt-6">
             <div class="mb-3 flex items-center justify-between">
-              <label class="text-sm font-medium text-slate-300">更改地理位置</label>
+              <label id="locationLabel" class="text-sm font-medium text-slate-300">更改地理位置</label>
               <span class="text-[10px] uppercase tracking-[0.2em] text-slate-400">Location</span>
             </div>
             <div class="flex gap-2">
@@ -413,7 +438,7 @@
             <div id="workbenchStats" class="grid grid-cols-2 gap-2"></div>
           </section>
 
-          <section class="mt-6 rounded-2xl border border-slate-700 bg-slate-900/70 p-3">
+          <section id="recruitmentDemandSection" class="mt-6 hidden rounded-2xl border border-slate-700 bg-slate-900/70 p-3">
             <div class="mb-2 flex items-center justify-between">
               <h2 class="text-sm font-medium text-slate-300">需求发布</h2>
               <span class="text-[10px] uppercase tracking-[0.18em] text-slate-500">Quick</span>
@@ -590,6 +615,20 @@
             </div>
           </aside>
         </main>
+      </div>
+    </div>
+
+    <!-- 数据治理总览抽屉：把分散的来源、字段、去重、建议统一汇总，点击各卡片可展开整合后的治理面板。 -->
+    <div id="governanceDrawer" class="fixed inset-0 z-[2000] hidden bg-slate-950/40 backdrop-blur-sm">
+      <div class="absolute right-0 top-0 h-full w-full max-w-[860px] overflow-hidden border-l border-slate-700 bg-slate-950/95 shadow-[0_0_60px_rgba(15,23,42,0.7)]">
+        <div class="flex items-center justify-between border-b border-slate-700 bg-slate-900/90 px-5 py-4">
+          <div>
+            <p class="text-[10px] uppercase tracking-[0.20em] text-sky-300">Governance</p>
+            <h3 class="mt-1 text-xl font-bold text-white">数据治理总览</h3>
+          </div>
+          <button id="closeGovernanceDrawerBtn" type="button" class="rounded-full border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:border-slate-500">关闭</button>
+        </div>
+        <div id="governanceDrawerBody" class="h-[calc(100%-72px)] overflow-y-auto p-4"></div>
       </div>
     </div>
 

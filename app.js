@@ -29,6 +29,12 @@
   let selectedRole = 'jobseeker';
   let employerJobPosts = [];
   let selectedEmployerJob = null;
+  let companyCenter = {
+    lat: 39.914,
+    lng: 116.455,
+    name: '北京国贸',
+  };
+  let searchCenter = { ...companyCenter };
 
   // 默认距离筛选：3 公里。
   // 用户可以通过滑块或数字输入框调整 0.1-5 公里的任意距离。
@@ -60,6 +66,7 @@
   let map;
   let markerLayer;
   let radarCircleLayer;
+  let recommendationPulseLayer;
   let allMarkers = [];
   let selectedRecord = null;
   let selectedProfileTab = 'portrait';
@@ -436,13 +443,15 @@
     // 招聘方视角不再展示 50 条杂乱的候选人点，改为 5 条经过筛选后的“候选人短名单”；
     // 这样更像真实招聘工作台：重点看高价值候选人 + 明确的重复风险提示，
     // 而不是把大量相似简历堆在地图上造成视觉噪音。
+    const talentCenter = selectedRole === 'employer' ? searchCenter : CENTER_POINT;
+
     return Array.from({ length: 5 }, (_, index) => {
-      const point = randomPointNearCenter(CENTER_POINT.lat, CENTER_POINT.lng, 5);
+      const point = randomPointNearCenter(talentCenter.lat, talentCenter.lng, 5);
       const title = titles[index % titles.length];
       const skillGroup = skillSets[index % skillSets.length];
       const salaryMin = 10 + (index % 8) * 4;
       const salaryMax = salaryMin + 8 + (index % 4) * 3;
-      const distanceKm = calculateDistanceKm(CENTER_POINT.lat, CENTER_POINT.lng, point.lat, point.lng);
+      const distanceKm = calculateDistanceKm(talentCenter.lat, talentCenter.lng, point.lat, point.lng);
       const status = statuses[index % statuses.length];
       const channel = channels[index % channels.length];
       const replyRate = 0.45 + (index % 6) * 0.08;
@@ -536,12 +545,18 @@
     }).length;
     const multiSourceCount = allRecords.filter((item) => (item.sourceRecords || []).length > 1).length;
     const duplicateCandidates = mockData.talents.filter((item) => Array.isArray(item.duplicateSignals) && item.duplicateSignals.length > 0).length || 5;
+    const suspectedCount = allRecords.filter((item) => {
+      const hasDuplicateSignals = Array.isArray(item.duplicateSignals) && item.duplicateSignals.length > 0;
+      const hasLowCoverage = !Array.isArray(item.skills) || item.skills.length === 0 || !(item.salaryMin || item.salaryMax || item.salary) || !item.sourceMeta?.collectedAt;
+      return hasDuplicateSignals || hasLowCoverage;
+    }).length;
 
     return {
       totalRecords: allRecords.length,
       sourceTypeCount: sourceTypes.size,
       staleCount,
       multiSourceCount,
+      suspectedCount,
       duplicateCandidates,
       schemaVersion: 'v1.2',
       dataWindow: '近 30 天',
@@ -635,6 +650,144 @@
     });
   }
 
+  function renderGovernanceDrawerBody() {
+    const drawerBody = document.getElementById('governanceDrawerBody');
+    if (!drawerBody) return;
+
+    const summary = buildGovernanceSummary();
+    const rows = buildGovernanceDetails();
+    const schema = buildSchemaMatrix();
+    const insights = buildGovernanceInsights();
+    const avgCoverage = Math.round(
+      rows.reduce((acc, row) => acc + Number.parseInt(row.fieldCoverage, 10), 0) / Math.max(rows.length, 1)
+    );
+
+    const metricCards = [
+      { key: '总记录', value: summary.totalRecords },
+      { key: '数据治理健康度', value: `${avgCoverage}%` },
+    ];
+
+    const sourceTable = `
+      <div class="rounded-2xl border border-slate-700 bg-slate-900/70 p-3">
+        <div class="mb-2 flex items-center justify-between">
+          <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">来源口径</div>
+          <span class="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[9px] text-slate-200">点击总览</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-left text-[11px] text-slate-200">
+            <thead class="bg-slate-950/70 text-slate-400">
+              <tr>
+                <th class="px-3 py-2 font-medium">来源</th>
+                <th class="px-3 py-2 font-medium">记录数</th>
+                <th class="px-3 py-2 font-medium">关键字段覆盖</th>
+                <th class="px-3 py-2 font-medium">治理建议状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map((row) => {
+                const issueFirst = insights.find((item) => item.sourceType === row.sourceType)?.issues?.[0] || '口径稳定，近期无明显治理风险';
+                return `
+                  <tr class="border-t border-slate-700/80">
+                    <td class="px-3 py-2 text-slate-100">${row.sourceType}</td>
+                    <td class="px-3 py-2">${row.count}</td>
+                    <td class="px-3 py-2 text-sky-300">${row.fieldCoverage}</td>
+                    <td class="px-3 py-2 ${row.attention === '需补齐/更新' ? 'text-amber-300' : 'text-emerald-300'}">${issueFirst}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    const matrixTable = `
+      <div class="rounded-2xl border border-slate-700 bg-slate-900/70 p-3">
+        <div class="mb-2 text-[10px] uppercase tracking-[0.18em] text-slate-400">字段分布</div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-left text-[11px] text-slate-200">
+            <thead class="bg-slate-950/70 text-slate-400">
+              <tr>
+                <th class="px-3 py-2 font-medium">字段</th>
+                ${schema.sourceNames.map((name) => `<th class="px-3 py-2 font-medium">${name}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${schema.rows.map((row) => `
+                <tr class="border-t border-slate-700/80">
+                  <td class="px-3 py-2 text-slate-100">${row.field}</td>
+                  ${row.coverage.map((cell) => `
+                    <td class="px-3 py-2 ${cell.pct >= 85 ? 'text-emerald-300' : cell.pct >= 60 ? 'text-amber-300' : 'text-rose-300'}">${cell.pct}%</td>
+                  `).join('')}
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    const insightPanel = `
+      <div class="rounded-2xl border border-slate-700 bg-slate-900/70 p-3">
+        <div class="mb-2 text-[10px] uppercase tracking-[0.18em] text-slate-400">治理建议汇总</div>
+        <div class="space-y-2">
+          ${insights.map((item) => `
+            <div class="rounded-xl border border-slate-700 bg-slate-950/70 p-2">
+              <div class="mb-1 flex items-center justify-between gap-2">
+                <span class="font-medium text-slate-100">${item.sourceType}</span>
+                <span class="rounded-full border border-slate-600 bg-slate-800 px-1.5 py-0.5 text-[9px] text-slate-200">已合并</span>
+              </div>
+              <ul class="list-disc space-y-1 pl-4 text-[11px] text-slate-300">
+                ${item.issues.map((issue) => `<li>${issue}</li>`).join('')}
+              </ul>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+
+    drawerBody.innerHTML = `
+      <div class="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-3">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">数据治理健康度</div>
+            <div class="mt-1 text-lg font-bold text-white"><span class="${avgCoverage >= 80 ? 'text-emerald-200' : avgCoverage >= 60 ? 'text-amber-200' : 'text-rose-200'}">${avgCoverage >= 80 ? '健康' : avgCoverage >= 60 ? '待改善' : '需治理'}</span></div>
+          </div>
+          <div class="rounded-full border border-slate-700 bg-slate-950/80 px-3 py-1 text-sm font-semibold text-slate-100">${avgCoverage}%</div>
+        </div>
+        <div class="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-800">
+          <div class="h-full rounded-full bg-gradient-to-r from-emerald-400 via-amber-400 to-rose-400" style="width: ${avgCoverage}%"></div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 md:grid-cols-4">
+        ${metricCards.map((card) => `
+          <button type="button" class="rounded-2xl border border-slate-700 bg-slate-900/70 p-3 text-left transition hover:border-sky-400 hover:bg-slate-800/80">
+            <div class="text-[10px] uppercase tracking-[0.15em] text-slate-400">${card.key}</div>
+            <div class="mt-2 text-xl font-bold text-white">${card.value}</div>
+          </button>
+        `).join('')}
+      </div>
+
+      ${sourceTable}
+      ${matrixTable}
+      ${insightPanel}
+    `;
+  }
+
+  function openGovernanceDrawer() {
+    const drawer = document.getElementById('governanceDrawer');
+    if (!drawer) return;
+    renderGovernanceDrawerBody();
+    drawer.classList.remove('hidden');
+  }
+
+  function closeGovernanceDrawer() {
+    const drawer = document.getElementById('governanceDrawer');
+    if (!drawer) return;
+    drawer.classList.add('hidden');
+  }
+
   function renderGovernanceSummary() {
     const healthContainer = document.getElementById('dataGovernanceHealth');
     const summaryContainer = document.getElementById('dataGovernanceSummary');
@@ -654,8 +807,8 @@
     healthContainer.innerHTML = `
       <div class="flex items-center justify-between gap-3">
         <div>
-          <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">Data Health</div>
-          <div class="mt-1 text-lg font-bold text-white">数据治理健康度：<span class="${healthColor}">${healthState}</span></div>
+          <div class="text-[10px] uppercase tracking-[0.18em] text-slate-400">数据治理健康度</div>
+          <div class="mt-1 text-lg font-bold text-white"><span class="${healthColor}">${healthState}</span></div>
         </div>
         <div class="rounded-full border border-slate-700 bg-slate-950/80 px-3 py-1 text-sm font-semibold text-slate-100">${avgCoverage}%</div>
       </div>
@@ -665,85 +818,35 @@
     `;
 
     const cards = [
-      { label: '总记录', value: summary.totalRecords },
-      { label: '来源口径', value: `${summary.sourceTypeCount}类` },
-      { label: '多源归并', value: `${summary.multiSourceCount}条` },
-      { label: '失效数据', value: `${summary.staleCount}条` },
-      { label: '疑似重复', value: `${summary.duplicateCandidates}条` },
-      { label: 'Schema', value: summary.schemaVersion },
+      { label: '总记录', value: summary.totalRecords, key: 'total' },
     ];
 
     summaryContainer.innerHTML = cards.map((card) => `
-      <div class="rounded-2xl border border-slate-700 bg-slate-900/70 p-3">
+      <button type="button" data-governance-key="${card.key}" class="governance-card w-full rounded-2xl border border-slate-700 bg-slate-900/70 p-3 text-left transition hover:border-sky-400 hover:bg-slate-800/80">
         <div class="text-[10px] uppercase tracking-[0.15em] text-slate-400">${card.label}</div>
         <div class="mt-2 text-xl font-bold text-white">${card.value}</div>
-      </div>
+      </button>
     `).join('');
 
-    const rows = buildGovernanceDetails();
+    summaryContainer.querySelectorAll('.governance-card').forEach((button) => {
+      button.addEventListener('click', () => openGovernanceDrawer());
+    });
+
     tableContainer.innerHTML = `
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-left text-[11px] text-slate-200">
-          <thead class="bg-slate-950/70 text-slate-400">
-            <tr>
-              <th class="px-3 py-2 font-medium">来源</th>
-              <th class="px-3 py-2 font-medium">记录数</th>
-              <th class="px-3 py-2 font-medium">关键字段覆盖</th>
-              <th class="px-3 py-2 font-medium">状态</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows.map((row) => `
-              <tr class="border-t border-slate-700/80">
-                <td class="px-3 py-2 text-slate-100">${row.sourceType}</td>
-                <td class="px-3 py-2">${row.count}</td>
-                <td class="px-3 py-2 text-sky-300">${row.fieldCoverage}</td>
-                <td class="px-3 py-2 ${row.attention === '需补齐/更新' ? 'text-amber-300' : 'text-emerald-300'}">${row.attention}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
+      <div class="rounded-2xl border border-slate-700 bg-slate-900/70 p-3 text-xs text-slate-300">
+        点击总记录卡片即可展开合并后的数据治理总览。
       </div>
     `;
 
-    const schema = buildSchemaMatrix();
     schemaMatrixContainer.innerHTML = `
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-left text-[11px] text-slate-200">
-          <thead class="bg-slate-950/70 text-slate-400">
-            <tr>
-              <th class="px-3 py-2 font-medium">字段</th>
-              ${schema.sourceNames.map((name) => `<th class="px-3 py-2 font-medium">${name}</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>
-            ${schema.rows.map((row) => `
-              <tr class="border-t border-slate-700/80">
-                <td class="px-3 py-2 text-slate-100">${row.field}</td>
-                ${row.coverage.map((cell) => `
-                  <td class="px-3 py-2 ${cell.pct >= 85 ? 'text-emerald-300' : cell.pct >= 60 ? 'text-amber-300' : 'text-rose-300'}">${cell.pct}%</td>
-                `).join('')}
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
+      <div class="rounded-2xl border border-slate-700 bg-slate-900/70 p-3 text-xs text-slate-300">
+        详细字段覆盖与治理建议仍保留在点击展开的总览中，页面不再重复展示额外筛选项。
       </div>
     `;
 
-    const insights = buildGovernanceInsights();
     insightsContainer.innerHTML = `
-      <div class="rounded-2xl border border-slate-700 bg-slate-900/70 p-3">
-        <div class="mb-2 text-[10px] uppercase tracking-[0.15em] text-slate-400">治理建议</div>
-        <div class="space-y-2">
-          ${insights.map((item) => `
-            <div class="rounded-xl border border-slate-700 bg-slate-950/70 p-2">
-              <div class="mb-1 font-medium text-slate-100">${item.sourceType}</div>
-              <ul class="list-disc space-y-1 pl-4 text-[11px] text-slate-300">
-                ${item.issues.map((issue) => `<li>${issue}</li>`).join('')}
-              </ul>
-            </div>
-          `).join('')}
-        </div>
+      <div class="rounded-2xl border border-slate-700 bg-slate-900/70 p-3 text-xs text-slate-300">
+        仅保留总记录与数据治理健康度两个核心维度，避免噪音项干扰。
       </div>
     `;
   }
@@ -782,6 +885,7 @@
 
     markerLayer = L.layerGroup().addTo(map);
     radarCircleLayer = L.layerGroup().addTo(map);
+    recommendationPulseLayer = L.layerGroup().addTo(map);
 
     renderHeatZones();
     renderMapData();
@@ -793,8 +897,9 @@
 
     const color = selectedRole === 'jobseeker' ? '#38bdf8' : '#f59e0b';
     const circleRadius = selectedDistanceKm * 1000;
+    const radarCenter = selectedRole === 'employer' ? companyCenter : CENTER_POINT;
 
-    const glowCircle = L.circle([CENTER_POINT.lat, CENTER_POINT.lng], {
+    const glowCircle = L.circle([radarCenter.lat, radarCenter.lng], {
       radius: circleRadius,
       color,
       fillColor: color,
@@ -803,7 +908,7 @@
       opacity: 0.8,
     }).addTo(radarCircleLayer);
 
-    const outerRing = L.circle([CENTER_POINT.lat, CENTER_POINT.lng], {
+    const outerRing = L.circle([radarCenter.lat, radarCenter.lng], {
       radius: Math.min(circleRadius + 900, 5000),
       color: '#94a3b8',
       fill: false,
@@ -816,7 +921,7 @@
     // 而不是把视野强行锁定在“随机圆圈半径”的 bounds 上。
     // 这样就能看到真实的道路、商业区和街道网络，而不是只看一个抽象红蓝圈。
     if (map && map.getZoom() < 13) {
-      map.setView([CENTER_POINT.lat, CENTER_POINT.lng], 14, { animate: false });
+      map.setView([radarCenter.lat, radarCenter.lng], 14, { animate: false });
     }
     map && map.invalidateSize();
   }
@@ -1011,6 +1116,7 @@
       const marker = L.marker([record.lat, record.lng], {
         icon: createMarkerIcon(record),
         title: record.title || record.name,
+        recordId: record.id,
       }).bindPopup(buildPopupHtml(record), { closeButton: true, autoPan: true });
 
       marker.on('popupopen', () => {
@@ -1166,13 +1272,33 @@
   // 注意：这里不再把地图强行缩放到半径圈，而是按照真实地理视野来展示周边的街道和商业区。
   function refreshMapContext() {
     if (!map) return;
+    const focusPoint = selectedRole === 'employer' ? companyCenter : CENTER_POINT;
     const zoomLevel = 14;
-    map.setView([CENTER_POINT.lat, CENTER_POINT.lng], zoomLevel, {
+    map.setView([focusPoint.lat, focusPoint.lng], zoomLevel, {
       animate: true,
       duration: 0.45,
     });
     map.invalidateSize();
     renderHeatZones();
+  }
+
+  function syncLocationModeUI() {
+    const locationLabel = document.getElementById('locationLabel');
+    const locationInput = document.getElementById('locationText');
+    if (locationLabel) {
+      locationLabel.textContent = selectedRole === 'employer' ? '搜索周边人才位置' : '更改地理位置';
+    }
+    if (locationInput) {
+      locationInput.placeholder = selectedRole === 'employer'
+        ? '例如：深圳湾区 / 上海陆家嘴 / 北京国贸（按公司定位搜索周边人才）'
+        : '例如：北京国贸 / 上海陆家嘴 / 深圳湾区';
+    }
+
+    const locationBadge = document.getElementById('locationBadge');
+    if (locationBadge) {
+      const displayName = selectedRole === 'employer' ? `${companyCenter.name} · 公司定位` : CENTER_POINT.name;
+      locationBadge.textContent = displayName;
+    }
   }
 
   function applyCenterLocation() {
@@ -1187,22 +1313,33 @@
     const targetLocation = locationKey
       ? LOCATION_PRESETS[locationKey]
       : {
-          lat: CENTER_POINT.lat,
-          lng: CENTER_POINT.lng,
-          name: inputValue || CENTER_POINT.name,
+          lat: selectedRole === 'employer' ? searchCenter.lat : CENTER_POINT.lat,
+          lng: selectedRole === 'employer' ? searchCenter.lng : CENTER_POINT.lng,
+          name: inputValue || (selectedRole === 'employer' ? searchCenter.name : CENTER_POINT.name),
         };
 
-    CENTER_POINT = {
-      ...CENTER_POINT,
-      ...targetLocation,
-      name: targetLocation.name || CENTER_POINT.name,
-    };
+    if (selectedRole === 'employer') {
+      // 招聘方模式下，地图仍以公司定位为锚点，不把“搜索位置”覆盖掉公司中心；
+      // 但人才生成与推荐匹配都应以搜索位置为基准，确保“公司在地图上固定、人才在周边检索”。
+      searchCenter = {
+        ...searchCenter,
+        ...targetLocation,
+        name: targetLocation.name || searchCenter.name,
+      };
+    } else {
+      CENTER_POINT = {
+        ...CENTER_POINT,
+        ...targetLocation,
+        name: targetLocation.name || CENTER_POINT.name,
+      };
+      searchCenter = { ...CENTER_POINT };
+    }
 
     mockData.jobs = generateJobs();
     mockData.talents = generateTalents();
     recommendedIds = new Set();
     selectedRecord = null;
-    document.getElementById('locationBadge').textContent = CENTER_POINT.name;
+    syncLocationModeUI();
     renderGovernanceSummary();
     renderDetailDrawer();
 
@@ -1390,6 +1527,7 @@
 
     renderRecommendationList(scored);
     renderMapData();
+    triggerRecommendationAnimation(scored);
     return scored;
   }
 
@@ -1894,15 +2032,22 @@
 
   function renderEmployerJobEditor() {
     const editor = document.getElementById('jobPublishEditor');
+    const recruitmentDemandSection = document.getElementById('recruitmentDemandSection');
     if (!editor) return;
 
     if (selectedRole !== 'employer') {
       editor.classList.add('hidden');
       editor.classList.remove('job-editor-modal');
       editor.classList.remove('job-editor-dialog');
+      if (recruitmentDemandSection) {
+        recruitmentDemandSection.classList.add('hidden');
+      }
       return;
     }
 
+    if (recruitmentDemandSection) {
+      recruitmentDemandSection.classList.remove('hidden');
+    }
     editor.classList.remove('hidden');
     if (!selectedEmployerJob && employerJobPosts.length > 0) {
       selectedEmployerJob = employerJobPosts[0];
@@ -2008,6 +2153,77 @@
       const shouldShow = role === selectedRole;
       panel.classList.toggle('hidden', !shouldShow);
     });
+  }
+
+  function triggerRecommendationAnimation(sortedRecords) {
+    const matchBtn = document.getElementById('matchBtn');
+    if (matchBtn) {
+      matchBtn.classList.add('recommendation-btn--loading');
+      matchBtn.disabled = true;
+      matchBtn.textContent = '推荐中...';
+    }
+
+    if (!map || !sortedRecords || !sortedRecords.length) {
+      if (matchBtn) {
+        setTimeout(() => {
+          matchBtn.classList.remove('recommendation-btn--loading');
+          matchBtn.disabled = false;
+          matchBtn.textContent = '智能推荐';
+        }, 500);
+      }
+      return;
+    }
+
+    const points = sortedRecords.map((record) => [record.lat, record.lng]);
+    const bounds = L.latLngBounds(points);
+    map.flyToBounds(bounds.pad(0.45), {
+      animate: true,
+      duration: 0.9,
+      maxZoom: 15,
+    });
+
+    if (recommendationPulseLayer) {
+      recommendationPulseLayer.clearLayers();
+      sortedRecords.forEach((record, index) => {
+        const ring = L.circle([record.lat, record.lng], {
+          radius: 120 + index * 80,
+          color: '#fbbf24',
+          fillColor: '#fbbf24',
+          fillOpacity: 0.1,
+          weight: 2,
+          opacity: 0.7,
+        });
+        const pulse = L.circleMarker([record.lat, record.lng], {
+          radius: 9 + index,
+          color: '#fef3c7',
+          fillColor: '#fbbf24',
+          fillOpacity: 0.95,
+          weight: 3,
+        });
+        recommendationPulseLayer.addLayer(ring);
+        recommendationPulseLayer.addLayer(pulse);
+      });
+
+      setTimeout(() => {
+        recommendationPulseLayer.clearLayers();
+      }, 2000);
+    }
+
+    const topRecord = sortedRecords[0];
+    const matchedMarker = allMarkers.find((marker) => marker.options?.recordId === topRecord.id);
+    if (matchedMarker) {
+      setTimeout(() => {
+        matchedMarker.openPopup();
+      }, 350);
+    }
+
+    if (matchBtn) {
+      setTimeout(() => {
+        matchBtn.classList.remove('recommendation-btn--loading');
+        matchBtn.disabled = false;
+        matchBtn.textContent = '智能推荐';
+      }, 900);
+    }
   }
 
   function renderRecommendationList(sortedRecords) {
@@ -2131,6 +2347,8 @@
         }
 
         syncRolePanels();
+        syncLocationModeUI();
+        refreshMapContext();
         renderHeatZones();
         renderRecruitingPulse();
         renderEmployerJobEditor();
@@ -2156,6 +2374,20 @@
     const closeResumeModalBtn = document.getElementById('closeResumeModalBtn');
     if (closeResumeModalBtn) {
       closeResumeModalBtn.addEventListener('click', closeResumeModal);
+    }
+
+    const governanceDrawer = document.getElementById('governanceDrawer');
+    if (governanceDrawer) {
+      governanceDrawer.addEventListener('click', (event) => {
+        if (event.target === governanceDrawer) {
+          closeGovernanceDrawer();
+        }
+      });
+    }
+
+    const closeGovernanceDrawerBtn = document.getElementById('closeGovernanceDrawerBtn');
+    if (closeGovernanceDrawerBtn) {
+      closeGovernanceDrawerBtn.addEventListener('click', closeGovernanceDrawer);
     }
 
     document.querySelectorAll('.profile-tab').forEach((button) => {
@@ -2312,6 +2544,10 @@
     });
 
     document.getElementById('matchBtn').addEventListener('click', () => {
+      const button = document.getElementById('matchBtn');
+      if (button && button.disabled) return;
+      button?.classList.add('recommendation-btn--loading');
+      button && (button.textContent = '推荐中...');
       fetchAIRecommendation();
     });
 
@@ -2370,11 +2606,13 @@
     initMap();
     bindEvents();
     syncRolePanels();
+    syncLocationModeUI();
 
     // 页面首次默认执行 AI 推荐，确保地图上有金色高亮点。
     setTimeout(() => {
       fetchAIRecommendation();
       syncRolePanels();
+      syncLocationModeUI();
     }, 120);
   }
 
