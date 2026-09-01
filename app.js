@@ -446,7 +446,7 @@
     // 而不是把大量相似简历堆在地图上造成视觉噪音。
     const talentCenter = selectedRole === 'employer' ? searchCenter : CENTER_POINT;
 
-    return Array.from({ length: 5 }, (_, index) => {
+    return Array.from({ length: 30 }, (_, index) => {
       const point = randomPointNearCenter(talentCenter.lat, talentCenter.lng, 5);
       const title = titles[index % titles.length];
       const skillGroup = skillSets[index % skillSets.length];
