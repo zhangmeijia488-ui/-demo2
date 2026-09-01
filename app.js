@@ -57,6 +57,34 @@
   // 推广“AI 推荐”的结果 ID 集合，用于给推荐点标上金色高亮。
   let recommendedIds = new Set();
 
+  function showToast(message, tone = 'info') {
+    const toast = document.getElementById('globalToast');
+    const toastText = document.getElementById('globalToastText');
+    if (!toast || !toastText) return;
+
+    const toneMap = {
+      info: ['border-sky-400/40', 'bg-slate-900/95', 'text-sky-200', 'bg-sky-400'],
+      success: ['border-emerald-400/40', 'bg-slate-900/95', 'text-emerald-200', 'bg-emerald-400'],
+      warning: ['border-amber-400/40', 'bg-slate-900/95', 'text-amber-200', 'bg-amber-400'],
+    };
+    const [borderClass, bgClass, textClass, dotClass] = toneMap[tone] || toneMap.info;
+
+    toast.className = `pointer-events-none fixed right-6 top-6 z-[3000] max-w-sm translate-y-2 rounded-2xl border ${borderClass} ${bgClass} px-4 py-3 text-sm text-slate-100 opacity-100 shadow-[0_20px_40px_rgba(15,23,42,0.45)] transition-all duration-200 ease-out`;
+    toastText.textContent = message;
+    const dot = toast.querySelector('span');
+    if (dot) {
+      dot.className = `mt-0.5 inline-flex h-2.5 w-2.5 rounded-full ${dotClass}`;
+    }
+    toast.classList.remove('opacity-0', 'translate-y-2');
+    toast.classList.add('opacity-100', 'translate-y-0');
+
+    clearTimeout(showToast._timer);
+    showToast._timer = setTimeout(() => {
+      toast.classList.add('opacity-0', 'translate-y-2');
+      toast.classList.remove('opacity-100', 'translate-y-0');
+    }, 1800);
+  }
+
   // 存储所有模拟数据：岗位 & 人才。注意：这是前端 Mock 数据，不代表真实招聘库。
   const mockData = {
     jobs: [],
@@ -938,19 +966,20 @@
     const isRecommended = recommendedIds.has(record.id);
     const baseColor = record.type === 'job' ? '#38bdf8' : '#f59e0b';
     const accentColor = isRecommended ? '#fbbf24' : baseColor;
+    const ringSize = isRecommended ? 28 : 18;
 
     const html = `
-      <div style="position: relative; width: 18px; height: 18px;">
-        <div style="position:absolute; inset:0; border-radius:50%; background:${accentColor}; box-shadow: 0 0 0 3px rgba(255,255,255,0.12), 0 14px 18px rgba(0,0,0,0.18);"></div>
-        ${isRecommended ? '<div style="position:absolute; inset:-5px; border:2px solid rgba(251,191,36,0.9); border-radius:50%;"></div>' : ''}
+      <div style="position: relative; width: ${ringSize}px; height: ${ringSize}px; display:flex; align-items:center; justify-content:center;">
+        <div style="position:absolute; inset:${isRecommended ? '-6px' : '0'}; border-radius:50%; background:${isRecommended ? 'rgba(251,191,36,0.18)' : 'transparent'}; animation:${isRecommended ? 'recommend-ring 1.4s ease-out infinite' : 'none'};"></div>
+        <div style="position:absolute; inset:0; border-radius:50%; background:${accentColor}; box-shadow: 0 0 0 3px rgba(255,255,255,0.12), 0 14px 18px rgba(0,0,0,0.18); border:${isRecommended ? '2px solid rgba(254,243,199,0.9)' : 'none'};"></div>
       </div>
     `;
 
     return L.divIcon({
       className: 'custom-pin',
       html,
-      iconSize: [18, 18],
-      iconAnchor: [9, 9],
+      iconSize: [ringSize, ringSize],
+      iconAnchor: [ringSize / 2, ringSize / 2],
       popupAnchor: [0, -10],
     });
   }
@@ -2263,6 +2292,7 @@
     }
 
     if (!map || !sortedRecords || !sortedRecords.length) {
+      showToast('当前筛选范围内暂无合适对象，建议放大筛选范围。', 'warning');
       if (matchBtn) {
         setTimeout(() => {
           matchBtn.classList.remove('recommendation-btn--loading');
@@ -2315,6 +2345,11 @@
         matchedMarker.openPopup();
       }, 350);
     }
+
+    showToast(
+      `AI 已识别 ${sortedRecords.length} 个高匹配对象，已在地图中高亮展示。`,
+      'success'
+    );
 
     if (matchBtn) {
       setTimeout(() => {
