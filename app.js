@@ -29,6 +29,7 @@
   let selectedRole = 'jobseeker';
   let employerJobPosts = [];
   let selectedEmployerJob = null;
+  let mapDraftJobLocation = null;
   let companyCenter = {
     lat: 39.914,
     lng: 116.455,
@@ -321,7 +322,7 @@
       ['销售', '客户管理', '商务'],
     ];
 
-    return Array.from({ length: 50 }, (_, index) => {
+    return Array.from({ length: 90 }, (_, index) => {
       const point = randomPointNearCenter(CENTER_POINT.lat, CENTER_POINT.lng, 5);
       const title = jobTitles[index % jobTitles.length];
       const skillGroup = skillSets[index % skillSets.length];
@@ -870,6 +871,11 @@
       attributionControl: true,
       preferCanvas: true,
     }).setView([CENTER_POINT.lat, CENTER_POINT.lng], 13);
+
+    map.on('click', (event) => {
+      if (selectedRole !== 'employer') return;
+      openMapJobDraft(event.latlng);
+    });
 
     // 高德/导航地图的感觉，核心不是品牌本身，而是：
     // 1）清晰的道路与街道层级；
@@ -2014,7 +2020,16 @@
       type: 'job',
       recruiter: existingJob?.recruiter || { name: '招聘负责人', phone: '13900000000', email: 'hr@studio.com' },
       skills: skillsEl.value.split(/[，,、]/).map((item) => item.trim()).filter(Boolean) || ['游戏策划'],
-      companyBenefits: benefitsEl.value.split(/[，,、]/).map((item) => item.trim()).filter(Boolean) || ['五险一金'],
+      lat: existingJob?.lat || mapDraftJobLocation?.lat || companyCenter.lat,
+      lng: existingJob?.lng || mapDraftJobLocation?.lng || companyCenter.lng,
+      distanceKm: 0,
+      source: '招聘后台',
+      publishedAt: new Date().toISOString(),
+      sourceMeta: buildSourceMeta({
+        sourceType: 'ATS',
+        sourceName: '招聘后台发布',
+        capturedAt: new Date().toISOString(),
+      }),
     };
 
     const existingIndex = employerJobPosts.findIndex((job) => job.id === nextJob.id);
@@ -2024,19 +2039,37 @@
       employerJobPosts.unshift(nextJob);
     }
 
+    const jobIndexInMock = mockData.jobs.findIndex((job) => job.id === nextJob.id);
+    if (jobIndexInMock >= 0) {
+      mockData.jobs.splice(jobIndexInMock, 1, nextJob);
+    } else {
+      mockData.jobs.unshift({
+        ...nextJob,
+        id: nextJob.id,
+        type: 'job',
+        salaryMin: Number((nextJob.salary || '20k-35k/月').match(/\d+/)?.[0] || 20),
+        salaryMax: Number((nextJob.salary || '20k-35k/月').match(/\d+/g)?.[1] || 35),
+        distanceKm: Number(calculateDistanceKm(CENTER_POINT.lat, CENTER_POINT.lng, nextJob.lat, nextJob.lng).toFixed(2)),
+      });
+    }
+
     selectedEmployerJob = nextJob;
+    mapDraftJobLocation = null;
     renderRecruitingPulse();
     renderJobCandidateMatches(nextJob);
     setEmployerJobForm(nextJob);
+    renderMapData();
   }
 
   function renderEmployerJobEditor() {
-    const drawer = document.getElementById('jobPublishDrawer');
+    const editor = document.getElementById('jobPublishEditor');
     const recruitmentDemandSection = document.getElementById('recruitmentDemandSection');
-    if (!drawer) return;
+    if (!editor) return;
 
     if (selectedRole !== 'employer') {
-      drawer.classList.add('hidden');
+      editor.classList.add('hidden');
+      editor.classList.remove('job-editor-modal');
+      editor.classList.remove('job-editor-dialog');
       if (recruitmentDemandSection) {
         recruitmentDemandSection.classList.add('hidden');
       }
@@ -2048,7 +2081,9 @@
     if (recruitmentDemandSection) {
       recruitmentDemandSection.classList.remove('hidden');
     }
-    drawer.classList.add('hidden');
+    editor.classList.add('hidden');
+    editor.classList.remove('job-editor-modal');
+    editor.classList.remove('job-editor-dialog');
     if (!selectedEmployerJob && employerJobPosts.length > 0) {
       selectedEmployerJob = employerJobPosts[0];
     }
@@ -2059,25 +2094,94 @@
 
   function openGameJobEditor(job) {
     selectedEmployerJob = job;
-    const drawer = document.getElementById('jobPublishDrawer');
-    if (!drawer) return;
+    const editor = document.getElementById('jobPublishEditor');
+    if (!editor) return;
 
-    drawer.classList.remove('hidden');
-    drawer.setAttribute('aria-modal', 'true');
-    drawer.onclick = (event) => {
-      if (event.target === drawer) {
+    editor.classList.remove('hidden');
+    editor.classList.add('job-editor-modal');
+    editor.classList.add('job-editor-dialog');
+    Object.assign(editor.style, {
+      position: 'fixed',
+      top: '20px',
+      right: '20px',
+      bottom: '20px',
+      width: 'min(520px, calc(100vw - 32px))',
+      maxWidth: 'calc(100vw - 32px)',
+      zIndex: '2001',
+      borderRadius: '28px 0 0 28px',
+      margin: '0',
+      padding: '0',
+      background: 'rgba(2, 6, 23, 0.96)',
+      boxShadow: '-18px 20px 50px rgba(15, 23, 42, 0.55)',
+      border: '1px solid rgba(148, 163, 184, 0.34)',
+      borderRight: 'none',
+      overflowY: 'auto',
+    });
+    editor.setAttribute('aria-modal', 'true');
+    setEmployerJobForm(job);
+
+    editor.onclick = (event) => {
+      if (event.target === editor) {
         closeGameJobEditor();
       }
     };
-    setEmployerJobForm(job);
+  }
+
+  function openMapJobDraft(latlng) {
+    if (!latlng || selectedRole !== 'employer') return;
+    mapDraftJobLocation = {
+      lat: Number(latlng.lat),
+      lng: Number(latlng.lng),
+    };
+    selectedEmployerJob = {
+      id: `draft-job-${Date.now()}`,
+      company: '',
+      title: '',
+      salary: '20k-35k/月',
+      urgency: '急聘',
+      hiringPulseDays: 1,
+      requiredExperience: '1-3年',
+      education: '本科',
+      workEnvironment: '总部办公 / 周三驻场',
+      technicalSkills: ['岗位技能'],
+      responsibilities: ['待补充岗位职责'],
+      companyBenefits: ['五险一金'],
+      jobContent: '点击地图发布的岗位草稿，填写职责与要求后保存即可显示在地图上。',
+      jobSummary: '点击地图发布的岗位草稿，填写职责与要求后保存即可显示在地图上。',
+      lat: mapDraftJobLocation.lat,
+      lng: mapDraftJobLocation.lng,
+      type: 'job',
+      recruiter: { name: '招聘负责人', phone: '13900000000', email: 'hr@studio.com' },
+      skills: ['岗位技能'],
+    };
+    openGameJobEditor(selectedEmployerJob);
   }
 
   function closeGameJobEditor() {
-    const drawer = document.getElementById('jobPublishDrawer');
-    if (!drawer) return;
-    drawer.classList.add('hidden');
-    drawer.removeAttribute('aria-modal');
-    drawer.onclick = null;
+    const editor = document.getElementById('jobPublishEditor');
+    if (!editor) return;
+    editor.classList.add('hidden');
+    editor.classList.remove('job-editor-modal');
+    editor.classList.remove('job-editor-dialog');
+    editor.style.position = '';
+    editor.style.inset = '';
+    editor.style.display = '';
+    editor.style.justifyContent = '';
+    editor.style.alignItems = '';
+    editor.style.background = '';
+    editor.style.backdropFilter = '';
+    editor.style.zIndex = '';
+    editor.style.right = '';
+    editor.style.top = '';
+    editor.style.bottom = '';
+    editor.style.left = '';
+    editor.style.width = '';
+    editor.style.maxWidth = '';
+    editor.style.minHeight = '';
+    editor.style.padding = '';
+    editor.style.margin = '';
+    editor.removeAttribute('aria-modal');
+    editor.onclick = null;
   }
 
   function renderRecruitingPulse() {
@@ -2422,37 +2526,42 @@
     });
 
     document.getElementById('publishRoleBtn').addEventListener('click', () => {
-      const nextJob = selectedEmployerJob || employerJobPosts[0] || null;
-      if (nextJob) {
-        selectedEmployerJob = nextJob;
-        setEmployerJobForm(nextJob);
-      } else {
-        selectedEmployerJob = null;
-        setEmployerJobForm({
-          company: '',
-          title: '',
-          requiredExperience: '',
-          education: '',
-          workEnvironment: '',
-          technicalSkills: [],
-          responsibilities: [],
-          companyBenefits: [],
-          jobContent: '',
-          jobSummary: '',
-        });
+      const editor = document.getElementById('jobPublishEditor');
+      if (!selectedEmployerJob && employerJobPosts.length > 0) {
+        selectedEmployerJob = employerJobPosts[0];
       }
-      openGameJobEditor(selectedEmployerJob || {
-        company: '',
-        title: '',
-        requiredExperience: '',
-        education: '',
-        workEnvironment: '',
-        technicalSkills: [],
-        responsibilities: [],
-        companyBenefits: [],
-        jobContent: '',
-        jobSummary: '',
-      });
+      if (selectedEmployerJob) {
+        setEmployerJobForm(selectedEmployerJob);
+      }
+      if (editor) {
+        editor.classList.remove('hidden');
+        editor.classList.add('job-editor-modal');
+        editor.classList.add('job-editor-dialog');
+        Object.assign(editor.style, {
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          bottom: '20px',
+          width: 'min(520px, calc(100vw - 32px))',
+          maxWidth: 'calc(100vw - 32px)',
+          zIndex: '2001',
+          borderRadius: '28px 0 0 28px',
+          margin: '0',
+          padding: '0',
+          background: 'rgba(2, 6, 23, 0.96)',
+          boxShadow: '-18px 20px 50px rgba(15, 23, 42, 0.55)',
+          border: '1px solid rgba(148, 163, 184, 0.34)',
+          borderRight: 'none',
+          overflowY: 'auto',
+        });
+        editor.setAttribute('aria-modal', 'true');
+        editor.scrollTop = 0;
+        editor.onclick = (event) => {
+          if (event.target === editor) {
+            closeGameJobEditor();
+          }
+        };
+      }
     });
 
     const closeJobEditorBtn = document.getElementById('closeJobEditorBtn');
