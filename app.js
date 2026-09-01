@@ -2045,10 +2045,14 @@
       return;
     }
 
+    // 需求发布不再在左侧上方占位展示；
+    // 正确的交互是：左侧只保留一个“发布岗位”入口，点击后在右侧抽屉中打开编辑器。
     if (recruitmentDemandSection) {
       recruitmentDemandSection.classList.remove('hidden');
     }
-    editor.classList.remove('hidden');
+    editor.classList.add('hidden');
+    editor.classList.remove('job-editor-modal');
+    editor.classList.remove('job-editor-dialog');
     if (!selectedEmployerJob && employerJobPosts.length > 0) {
       selectedEmployerJob = employerJobPosts[0];
     }
@@ -2065,6 +2069,23 @@
     editor.classList.remove('hidden');
     editor.classList.add('job-editor-modal');
     editor.classList.add('job-editor-dialog');
+    Object.assign(editor.style, {
+      position: 'fixed',
+      top: '20px',
+      right: '20px',
+      bottom: '20px',
+      width: 'min(520px, calc(100vw - 32px))',
+      maxWidth: 'calc(100vw - 32px)',
+      zIndex: '2001',
+      borderRadius: '28px 0 0 28px',
+      margin: '0',
+      padding: '0',
+      background: 'rgba(2, 6, 23, 0.96)',
+      boxShadow: '-18px 20px 50px rgba(15, 23, 42, 0.55)',
+      border: '1px solid rgba(148, 163, 184, 0.34)',
+      borderRight: 'none',
+      overflowY: 'auto',
+    });
     editor.setAttribute('aria-modal', 'true');
     setEmployerJobForm(job);
 
@@ -2081,6 +2102,23 @@
     editor.classList.add('hidden');
     editor.classList.remove('job-editor-modal');
     editor.classList.remove('job-editor-dialog');
+    editor.style.position = '';
+    editor.style.inset = '';
+    editor.style.display = '';
+    editor.style.justifyContent = '';
+    editor.style.alignItems = '';
+    editor.style.background = '';
+    editor.style.backdropFilter = '';
+    editor.style.zIndex = '';
+    editor.style.right = '';
+    editor.style.top = '';
+    editor.style.bottom = '';
+    editor.style.left = '';
+    editor.style.width = '';
+    editor.style.maxWidth = '';
+    editor.style.minHeight = '';
+    editor.style.padding = '';
+    editor.style.margin = '';
     editor.removeAttribute('aria-modal');
     editor.onclick = null;
   }
@@ -2438,6 +2476,30 @@
         editor.classList.remove('hidden');
         editor.classList.add('job-editor-modal');
         editor.classList.add('job-editor-dialog');
+        Object.assign(editor.style, {
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          bottom: '20px',
+          width: 'min(520px, calc(100vw - 32px))',
+          maxWidth: 'calc(100vw - 32px)',
+          zIndex: '2001',
+          borderRadius: '28px 0 0 28px',
+          margin: '0',
+          padding: '0',
+          background: 'rgba(2, 6, 23, 0.96)',
+          boxShadow: '-18px 20px 50px rgba(15, 23, 42, 0.55)',
+          border: '1px solid rgba(148, 163, 184, 0.34)',
+          borderRight: 'none',
+          overflowY: 'auto',
+        });
+        editor.setAttribute('aria-modal', 'true');
+        editor.scrollTop = 0;
+        editor.onclick = (event) => {
+          if (event.target === editor) {
+            closeGameJobEditor();
+          }
+        };
       }
     });
 

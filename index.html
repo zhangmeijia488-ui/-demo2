@@ -143,23 +143,27 @@
         position: fixed !important;
         inset: 0 !important;
         z-index: 2001 !important;
-        display: block !important;
+        display: flex !important;
+        justify-content: flex-end !important;
+        align-items: stretch !important;
         background: rgba(2, 6, 23, 0.26) !important;
         backdrop-filter: blur(2px);
         padding: 0 !important;
       }
 
       .job-editor-dialog {
-        position: absolute !important;
-        right: 18px !important;
-        top: 18px !important;
-        bottom: 18px !important;
+        position: relative !important;
+        right: 0 !important;
+        top: 0 !important;
+        bottom: 0 !important;
         width: min(520px, calc(100vw - 32px)) !important;
         max-width: calc(100vw - 32px) !important;
-        max-height: calc(100vh - 36px) !important;
+        min-height: 100vh !important;
+        max-height: 100vh !important;
         overflow-y: auto !important;
-        border-radius: 28px !important;
+        border-radius: 28px 0 0 28px !important;
         border: 1px solid rgba(148, 163, 184, 0.34) !important;
+        border-right: none !important;
         background: rgba(2, 6, 23, 0.96) !important;
         box-shadow: -18px 20px 50px rgba(15, 23, 42, 0.55) !important;
         margin: 0 !important;
